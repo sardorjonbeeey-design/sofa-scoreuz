@@ -1,1 +1,3 @@
-a
+python-telegram-bot
+python-dotenv
+httpx
