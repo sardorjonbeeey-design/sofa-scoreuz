@@ -1,5 +1,6 @@
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -8,6 +9,7 @@ from aiogram.types import (
 )
 
 from app.localization.i18n import text
+from app.bot.handlers.menu import main_menu
 
 router = Router()
 
@@ -37,54 +39,34 @@ def language_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def main_menu(language: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=text("my_teams", language),
-                    callback_data="menu:teams",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=text("matches", language),
-                    callback_data="menu:matches",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=text("news", language),
-                    callback_data="menu:news",
-                ),
-                InlineKeyboardButton(
-                    text=text("standings", language),
-                    callback_data="menu:standings",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=text("settings", language),
-                    callback_data="menu:settings",
-                ),
-            ],
-        ]
-    )
-
-
 @router.message(CommandStart())
-async def start_handler(message: Message) -> None:
+async def start_handler(
+    message: Message,
+    state: FSMContext,
+) -> None:
+    await state.clear()
+
     await message.answer(
         text("choose_language"),
         reply_markup=language_keyboard(),
     )
 
 
-@router.callback_query(lambda callback: callback.data.startswith("lang:"))
-async def language_handler(callback: CallbackQuery) -> None:
+@router.callback_query(F.data.startswith("lang:"))
+async def language_handler(
+    callback: CallbackQuery,
+    state: FSMContext,
+) -> None:
     language = callback.data.split(":")[1]
 
-    await callback.answer(text("language_saved", language))
+    await state.update_data(
+        language=language,
+        favorite_teams=[],
+    )
+
+    await callback.answer(
+        text("language_saved", language)
+    )
 
     await callback.message.edit_text(
         text("welcome", language),
