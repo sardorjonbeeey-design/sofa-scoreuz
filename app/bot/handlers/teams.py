@@ -6,7 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.config import get_settings
 from app.football.api_football import ApiFootballProvider
-from app.football.team_resolver import TeamResolver
+from app.football.team_resolver import TeamResolver, format_team_result
 from app.localization.i18n import text
 
 
@@ -26,7 +26,7 @@ def teams_keyboard(teams, language: str):
 
     for team in teams:
         builder.button(
-            text=team.name,
+            text=format_team_result(team),
             callback_data=f"team:add:{team.id}:{team.name[:30]}",
         )
 
@@ -173,7 +173,9 @@ async def search_team(
         ),
     )
 
-    await state.clear()
+    # Preserve language and favorite_teams.
+    # Only leave the search state.
+    await state.set_state(None)
 
 
 @router.callback_query(
