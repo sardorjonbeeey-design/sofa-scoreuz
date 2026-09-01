@@ -7,6 +7,9 @@ class Team:
     id: int
     name: str
     logo_url: str | None = None
+    country: str | None = None
+    code: str | None = None
+    national: bool = False
 
 
 @dataclass(frozen=True)
