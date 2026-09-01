@@ -33,6 +33,9 @@ class ApiFootballProvider(FootballProvider):
                 id=item["team"]["id"],
                 name=item["team"]["name"],
                 logo_url=item["team"].get("logo"),
+                country=item["team"].get("country"),
+                code=item["team"].get("code"),
+                national=bool(item["team"].get("national")),
             )
             for item in data.get("response", [])
         ]
@@ -102,7 +105,6 @@ class ApiFootballProvider(FootballProvider):
 
         for item in data.get("response", []):
             for index, event in enumerate(item.get("events", [])):
-
                 events.append(
                     MatchEvent(
                         fixture_id=fixture_id,
