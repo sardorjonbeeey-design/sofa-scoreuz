@@ -6,6 +6,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from app.config import Settings
 from app.bot.handlers.menu import router as menu_router
 from app.bot.handlers.start import router as start_router
+from app.bot.handlers.teams import router as teams_router
 
 
 def create_bot(token: str) -> Bot:
@@ -27,5 +28,6 @@ def create_dispatcher(settings: Settings) -> Dispatcher:
 
     dispatcher.include_router(start_router)
     dispatcher.include_router(menu_router)
+    dispatcher.include_router(teams_router)
 
     return dispatcher
