@@ -6,6 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.config import get_settings
 from app.football.api_football import ApiFootballProvider
+from app.football.team_resolver import TeamResolver
 from app.localization.i18n import text
 
 
@@ -66,17 +67,29 @@ async def show_my_teams(
     data = await state.get_data()
     language = get_language(data)
 
-    teams = data.get("favorite_teams", [])
+    teams = data.get(
+        "favorite_teams",
+        [],
+    )
 
     if not teams:
-        message_text = text("no_teams", language)
+        message_text = (
+            f"<b>{text('my_teams', language)}</b>\n\n"
+            f"{text('no_teams', language)}"
+        )
     else:
         team_lines = [
             f"{index}. ⚽ {team['name']}"
-            for index, team in enumerate(teams, start=1)
+            for index, team in enumerate(
+                teams,
+                start=1,
+            )
         ]
 
-        message_text = "\n".join(team_lines)
+        message_text = (
+            f"<b>{text('my_teams', language)}</b>\n\n"
+            + "\n".join(team_lines)
+        )
 
     await callback.message.edit_text(
         message_text,
@@ -95,7 +108,9 @@ async def start_team_search(
     data = await state.get_data()
     language = get_language(data)
 
-    await state.set_state(TeamSearchState.waiting_for_name)
+    await state.set_state(
+        TeamSearchState.waiting_for_name
+    )
 
     await callback.message.edit_text(
         text("send_team_name", language)
@@ -123,12 +138,21 @@ async def search_team(
 
     settings = get_settings()
 
+    if not settings.api_football_key:
+        await message.answer(
+            "API_FOOTBALL_KEY is not configured."
+        )
+        await state.clear()
+        return
+
     provider = ApiFootballProvider(
         settings.api_football_key
     )
 
+    resolver = TeamResolver(provider)
+
     try:
-        teams = await provider.search_teams(query)
+        teams = await resolver.resolve(query)
     finally:
         await provider.close()
 
@@ -136,20 +160,25 @@ async def search_team(
         await message.answer(
             text("no_teams_found", language)
         )
+        await state.set_state(
+            TeamSearchState.waiting_for_name
+        )
         return
 
     await message.answer(
         text("team_search_results", language),
         reply_markup=teams_keyboard(
-            teams[:10],
+            teams,
             language,
         ),
     )
 
-    await state.set_state(None)
+    await state.clear()
 
 
-@router.callback_query(F.data.startswith("team:add:"))
+@router.callback_query(
+    F.data.startswith("team:add:")
+)
 async def add_team(
     callback: CallbackQuery,
     state: FSMContext,
@@ -173,14 +202,20 @@ async def add_team(
         for team in favorite_teams
     ):
         await callback.answer(
-            text("team_already_added", language),
+            text(
+                "team_already_added",
+                language,
+            ),
             show_alert=True,
         )
         return
 
     if len(favorite_teams) >= 3:
         await callback.answer(
-            text("team_limit", language),
+            text(
+                "team_limit",
+                language,
+            ),
             show_alert=True,
         )
         return
@@ -197,7 +232,15 @@ async def add_team(
     )
 
     await callback.message.edit_text(
-        text("team_added", language),
+        f"<b>{text('my_teams', language)}</b>\n\n"
+        f"{text('team_added', language)}\n\n"
+        + "\n".join(
+            f"{index}. ⚽ {team['name']}"
+            for index, team in enumerate(
+                favorite_teams,
+                start=1,
+            )
+        ),
         reply_markup=my_teams_keyboard(language),
     )
 
