@@ -1,24 +1,36 @@
 import asyncio
 import logging
 import os
+from contextlib import AsyncExitStack
 
 from aiohttp import web
 
 from app.bot.bot import create_bot, create_dispatcher
-from app.config import get_settings
+from app.cache.cache import MemoryCache
+from app.config import Settings, get_settings
+from app.football.api_football import ApiFootballProvider
+from app.football.caching import CachingFootballProvider
+from app.football.team_directory import TeamDirectory
+from app.football.team_resolver import TeamResolver
 from app.scheduler.scheduler import create_scheduler
+from app.storage.factory import create_store
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_PORT = 10000
 
 
 async def health_check(request):
     return web.Response(text="Flash Football is running")
 
 
-async def start_web_server():
+async def start_web_server(port: int | None = None) -> web.AppRunner:
     app = web.Application()
     app.router.add_get("/", health_check)
     app.router.add_get("/health", health_check)
 
-    port = int(os.getenv("PORT", "10000"))
+    if port is None:
+        port = _port_from_env()
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -29,9 +41,17 @@ async def start_web_server():
     return runner
 
 
-async def main() -> None:
-    settings = get_settings()
+def _port_from_env() -> int:
+    raw = os.getenv("PORT", "").strip()
 
+    try:
+        return int(raw) if raw else DEFAULT_PORT
+    except ValueError:
+        logger.warning("PORT is not a valid integer; using %s.", DEFAULT_PORT)
+        return DEFAULT_PORT
+
+
+def configure_logging(settings: Settings) -> None:
     logging.basicConfig(
         level=getattr(
             logging,
@@ -41,20 +61,74 @@ async def main() -> None:
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
 
-    bot = create_bot(settings.bot_token)
-    dispatcher = create_dispatcher(settings)
-    scheduler = create_scheduler(settings)
 
-    web_runner = await start_web_server()
-    scheduler.start()
+async def run_application(
+    settings: Settings,
+    port: int | None = None,
+) -> None:
+    """Start every component, run polling, and shut down cleanly.
 
-    try:
+    Components are registered on an ``AsyncExitStack`` as they start,
+    so they are released in reverse order (scheduler -> bot session ->
+    football client -> database -> health server) even if a later
+    step fails or polling is interrupted by SIGTERM/SIGINT.
+    """
+    async with AsyncExitStack() as stack:
+        # Bind the health-check port first: hosting platforms expect
+        # the service to listen quickly, even while the database is
+        # still being contacted.
+        web_runner = await start_web_server(port)
+        stack.push_async_callback(web_runner.cleanup)
+
+        store = await create_store(settings)
+        stack.push_async_callback(store.close)
+
+        resolver = None
+
+        if settings.api_football_key:
+            provider = CachingFootballProvider(
+                ApiFootballProvider(settings.api_football_key),
+                MemoryCache(max_items=2000),
+            )
+            stack.push_async_callback(provider.close)
+            resolver = TeamResolver(provider)
+        else:
+            logger.warning(
+                "API_FOOTBALL_KEY is not set: team search is disabled."
+            )
+
+        bot = create_bot(settings.bot_token)
+        stack.push_async_callback(bot.session.close)
+
+        dispatcher = create_dispatcher(
+            settings,
+            store=store,
+            resolver=resolver,
+            directory=TeamDirectory(),
+        )
+
+        scheduler = create_scheduler(settings)
+        scheduler.start()
+        stack.callback(
+            lambda: scheduler.shutdown(wait=False)
+            if scheduler.running
+            else None
+        )
+
+        logger.info("Starting Telegram polling.")
         await dispatcher.start_polling(bot)
-    finally:
-        scheduler.shutdown(wait=False)
-        await web_runner.cleanup()
-        await bot.session.close()
+
+
+async def main() -> None:
+    settings = get_settings()
+    configure_logging(settings)
+    await run_application(settings)
+
+
+def run() -> None:
+    """Synchronous entry point used by ``main.py`` and ``-m app``."""
+    asyncio.run(main())
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    run()

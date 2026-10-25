@@ -19,9 +19,20 @@ TEXTS = {
         "team_search_results": "🔎 Topilgan jamoalar:",
         "team_added": "✅ Jamoa sevimlilaringizga qo‘shildi!",
         "team_already_added": "ℹ️ Bu jamoa allaqachon qo‘shilgan.",
-        "team_limit": "⚠️ Siz maksimal 3 ta sevimli jamoa qo‘sha olasiz.",
+        "team_limit": "⚠️ Siz maksimal {limit} ta sevimli jamoa qo‘sha olasiz.",
         "no_teams_found": "❌ Jamoa topilmadi. Boshqa nom bilan urinib ko‘ring.",
         "coming_soon": "🚧 Bu bo‘lim tez orada ishga tushadi.",
+        "team_removed": "🗑 Jamoa sevimlilardan olib tashlandi.",
+        "team_not_in_favorites": "ℹ️ Bu jamoa sevimlilar ro‘yxatida yo‘q.",
+        "remove_team_hint": "Olib tashlash uchun jamoani bosing:",
+        "search_expired": "⌛ Qidiruv natijalari eskirgan. Iltimos, jamoani qaytadan qidiring.",
+        "query_too_short": "✍️ Kamida 3 ta belgi yozing.",
+        "query_too_long": "✍️ Nom juda uzun. Qisqaroq yozing.",
+        "provider_quota": "⏳ Qidiruv limiti vaqtincha tugadi. Birozdan keyin qayta urinib ko‘ring.",
+        "provider_auth": "⚠️ Qidiruv xizmati hozircha mavjud emas. Keyinroq qayta urinib ko‘ring.",
+        "provider_unavailable": "⚠️ Ma’lumotlar xizmati vaqtincha javob bermayapti. Birozdan keyin qayta urinib ko‘ring.",
+        "storage_error": "⚠️ Ma’lumotlarni saqlashda vaqtincha muammo bor. Birozdan keyin qayta urinib ko‘ring.",
+        "invalid_action": "⚠️ Noto‘g‘ri amal.",
     },
 
     "ru": {
@@ -44,9 +55,20 @@ TEXTS = {
         "team_search_results": "🔎 Найденные команды:",
         "team_added": "✅ Команда добавлена в избранное!",
         "team_already_added": "ℹ️ Эта команда уже добавлена.",
-        "team_limit": "⚠️ Можно добавить максимум 3 любимые команды.",
+        "team_limit": "⚠️ Достигнут лимит избранных команд: {limit}.",
         "no_teams_found": "❌ Команда не найдена. Попробуйте другое название.",
         "coming_soon": "🚧 Этот раздел скоро будет доступен.",
+        "team_removed": "🗑 Команда удалена из избранного.",
+        "team_not_in_favorites": "ℹ️ Этой команды нет в избранном.",
+        "remove_team_hint": "Нажмите на команду, чтобы удалить её:",
+        "search_expired": "⌛ Результаты поиска устарели. Пожалуйста, найдите команду заново.",
+        "query_too_short": "✍️ Введите не менее 3 символов.",
+        "query_too_long": "✍️ Название слишком длинное. Напишите короче.",
+        "provider_quota": "⏳ Лимит поиска временно исчерпан. Попробуйте чуть позже.",
+        "provider_auth": "⚠️ Сервис поиска сейчас недоступен. Попробуйте позже.",
+        "provider_unavailable": "⚠️ Сервис данных временно не отвечает. Попробуйте чуть позже.",
+        "storage_error": "⚠️ Временная проблема с сохранением данных. Попробуйте чуть позже.",
+        "invalid_action": "⚠️ Недопустимое действие.",
     },
 
     "en": {
@@ -69,13 +91,47 @@ TEXTS = {
         "team_search_results": "🔎 Teams found:",
         "team_added": "✅ Team added to your favorites!",
         "team_already_added": "ℹ️ This team is already added.",
-        "team_limit": "⚠️ You can add a maximum of 3 favorite teams.",
+        "team_limit": "⚠️ You can add a maximum of {limit} favorite teams.",
         "no_teams_found": "❌ Team not found. Try another name.",
         "coming_soon": "🚧 This section is coming soon.",
+        "team_removed": "🗑 Team removed from your favorites.",
+        "team_not_in_favorites": "ℹ️ This team is not in your favorites.",
+        "remove_team_hint": "Tap a team to remove it:",
+        "search_expired": "⌛ These search results have expired. Please search for the team again.",
+        "query_too_short": "✍️ Please enter at least 3 characters.",
+        "query_too_long": "✍️ That name is too long. Please shorten it.",
+        "provider_quota": "⏳ The search limit has been reached for now. Please try again a bit later.",
+        "provider_auth": "⚠️ The search service is unavailable right now. Please try again later.",
+        "provider_unavailable": "⚠️ The data service is temporarily unavailable. Please try again shortly.",
+        "storage_error": "⚠️ A temporary problem occurred while saving your data. Please try again shortly.",
+        "invalid_action": "⚠️ Invalid action.",
     },
 }
 
 
-def text(key: str, language: str = "uz") -> str:
-    language_texts = TEXTS.get(language, TEXTS["uz"])
-    return language_texts.get(key, TEXTS["uz"].get(key, key))
+SUPPORTED_LANGUAGES = ("uz", "ru", "en")
+DEFAULT_LANGUAGE = "uz"
+
+
+def normalize_language(
+    code: str | None,
+    default: str = DEFAULT_LANGUAGE,
+) -> str:
+    """Return a supported language code, or the (validated) default."""
+    if code in SUPPORTED_LANGUAGES:
+        return code  # type: ignore[return-value]
+
+    return default if default in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
+
+
+def text(key: str, language: str = DEFAULT_LANGUAGE, **fmt) -> str:
+    language_texts = TEXTS.get(language, TEXTS[DEFAULT_LANGUAGE])
+    value = language_texts.get(key, TEXTS[DEFAULT_LANGUAGE].get(key, key))
+
+    if fmt:
+        try:
+            return value.format(**fmt)
+        except (KeyError, IndexError, ValueError):
+            return value
+
+    return value

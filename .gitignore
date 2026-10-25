@@ -1,11 +1,32 @@
+# Secrets and local configuration
 .env
+.env.*
+!.env.example
+
+# Python
 .venv/
 venv/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+
+# Test / tooling caches
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
 .idea/
 .vscode/
 .DS_Store
+
+# Local databases and logs
 *.db
+*.sqlite
 *.sqlite3
+*.log

@@ -1,7 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, DateTime, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+def utc_now() -> datetime:
+    # Timezone-aware: asyncpg rejects naive datetimes for
+    # "timestamp with time zone" columns.
+    return datetime.now(timezone.utc)
 
 
 class Base(DeclarativeBase):
@@ -23,7 +35,7 @@ class User(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=utc_now,
     )
 
 
@@ -48,7 +60,7 @@ class FavoriteTeam(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=utc_now,
     )
 
     __table_args__ = (

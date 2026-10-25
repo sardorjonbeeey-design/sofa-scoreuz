@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
@@ -8,8 +10,14 @@ from aiogram.types import (
     Message,
 )
 
-from app.localization.i18n import text
+from app.bot.handlers.common import edit_or_answer, user_language
 from app.bot.handlers.menu import main_menu
+from app.config import Settings
+from app.localization.i18n import SUPPORTED_LANGUAGES, text
+from app.storage.database import StorageError
+from app.storage.store import PreferenceStore
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -44,6 +52,8 @@ async def start_handler(
     message: Message,
     state: FSMContext,
 ) -> None:
+    # Only the transient FSM state is cleared. The user's saved
+    # language and favorites are stored in the database and are kept.
     await state.clear()
 
     await message.answer(
@@ -55,20 +65,44 @@ async def start_handler(
 @router.callback_query(F.data.startswith("lang:"))
 async def language_handler(
     callback: CallbackQuery,
-    state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
 ) -> None:
-    language = callback.data.split(":")[1]
+    language = (callback.data or "").partition(":")[2]
 
-    await state.update_data(
-        language=language,
-        favorite_teams=[],
-    )
+    if language not in SUPPORTED_LANGUAGES:
+        current = await user_language(
+            store,
+            settings,
+            callback.from_user.id,
+        )
+        await callback.answer(
+            text("invalid_action", current),
+            show_alert=True,
+        )
+        return
+
+    try:
+        await store.set_language(callback.from_user.id, language)
+    except StorageError:
+        # Not saved, so do not switch the interface as if it were.
+        current = await user_language(
+            store,
+            settings,
+            callback.from_user.id,
+        )
+        await callback.answer(
+            text("storage_error", current),
+            show_alert=True,
+        )
+        return
 
     await callback.answer(
         text("language_saved", language)
     )
 
-    await callback.message.edit_text(
+    await edit_or_answer(
+        callback,
         text("welcome", language),
-        reply_markup=main_menu(language),
+        main_menu(language),
     )

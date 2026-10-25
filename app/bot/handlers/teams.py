@@ -1,24 +1,52 @@
+import logging
+from html import escape
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from app.config import get_settings
-from app.football.api_football import ApiFootballProvider
-from app.football.team_resolver import TeamResolver, format_team_result
+from app.bot.callbacks import (
+    ACTION_ADD_TEAM,
+    ACTION_REMOVE_TEAM,
+    is_legacy_add_callback,
+    parse_team_callback,
+    team_callback,
+)
+from app.bot.handlers.common import edit_or_answer, user_language
+from app.config import Settings
+from app.football.team_directory import TeamDirectory
+from app.football.team_resolver import (
+    ResolveStatus,
+    TeamResolver,
+    format_team_result,
+)
 from app.localization.i18n import text
+from app.storage.database import StorageError
+from app.storage.store import (
+    AddFavoriteResult,
+    FavoriteTeamRecord,
+    PreferenceStore,
+)
 
+logger = logging.getLogger(__name__)
 
 router = Router()
+
+MIN_QUERY_LENGTH = 3
+MAX_QUERY_LENGTH = 60
+REMOVE_BUTTON_NAME_LIMIT = 40
+
+_RESOLVE_ERROR_KEYS = {
+    ResolveStatus.QUOTA_EXCEEDED: "provider_quota",
+    ResolveStatus.AUTH_ERROR: "provider_auth",
+    ResolveStatus.UNAVAILABLE: "provider_unavailable",
+}
 
 
 class TeamSearchState(StatesGroup):
     waiting_for_name = State()
-
-
-def get_language(data: dict) -> str:
-    return data.get("language", "uz")
 
 
 def teams_keyboard(teams, language: str):
@@ -27,7 +55,7 @@ def teams_keyboard(teams, language: str):
     for team in teams:
         builder.button(
             text=format_team_result(team),
-            callback_data=f"team:add:{team.id}:{team.name[:30]}",
+            callback_data=team_callback(ACTION_ADD_TEAM, team.id),
         )
 
     builder.button(
@@ -40,8 +68,25 @@ def teams_keyboard(teams, language: str):
     return builder.as_markup()
 
 
-def my_teams_keyboard(language: str):
+def my_teams_keyboard(
+    language: str,
+    favorites: list[FavoriteTeamRecord] | None = None,
+):
     builder = InlineKeyboardBuilder()
+
+    for favorite in favorites or []:
+        name = favorite.team_name
+
+        if len(name) > REMOVE_BUTTON_NAME_LIMIT:
+            name = name[: REMOVE_BUTTON_NAME_LIMIT - 1] + "…"
+
+        builder.button(
+            text=f"❌ {name}",
+            callback_data=team_callback(
+                ACTION_REMOVE_TEAM,
+                favorite.team_id,
+            ),
+        )
 
     builder.button(
         text=text("add_team", language),
@@ -58,43 +103,83 @@ def my_teams_keyboard(language: str):
     return builder.as_markup()
 
 
+def back_keyboard(language: str):
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text=text("back", language),
+        callback_data="menu:teams",
+    )
+
+    return builder.as_markup()
+
+
+def favorites_message(
+    language: str,
+    favorites: list[FavoriteTeamRecord],
+    notice: str | None = None,
+) -> str:
+    parts = [f"<b>{text('my_teams', language)}</b>"]
+
+    if notice:
+        parts.append(notice)
+
+    if not favorites:
+        parts.append(text("no_teams", language))
+    else:
+        parts.append(
+            "\n".join(
+                # Team names come from an external API: escape them,
+                # because the bot sends messages as HTML.
+                f"{index}. ⚽ {escape(team.team_name)}"
+                for index, team in enumerate(favorites, start=1)
+            )
+        )
+        parts.append(text("remove_team_hint", language))
+
+    return "\n\n".join(parts)
+
+
+async def _show_favorites(
+    callback: CallbackQuery,
+    store: PreferenceStore,
+    language: str,
+    notice: str | None = None,
+) -> None:
+    favorites = await store.list_favorites(callback.from_user.id)
+
+    await edit_or_answer(
+        callback,
+        favorites_message(language, favorites, notice),
+        my_teams_keyboard(language, favorites),
+    )
+
+
 @router.callback_query(F.data == "menu:teams")
 async def show_my_teams(
     callback: CallbackQuery,
     state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
 ) -> None:
 
-    data = await state.get_data()
-    language = get_language(data)
-
-    teams = data.get(
-        "favorite_teams",
-        [],
+    language = await user_language(
+        store,
+        settings,
+        callback.from_user.id,
     )
 
-    if not teams:
-        message_text = (
-            f"<b>{text('my_teams', language)}</b>\n\n"
-            f"{text('no_teams', language)}"
-        )
-    else:
-        team_lines = [
-            f"{index}. ⚽ {team['name']}"
-            for index, team in enumerate(
-                teams,
-                start=1,
-            )
-        ]
+    # Leaving the search prompt: stop treating text as a team name.
+    await state.set_state(None)
 
-        message_text = (
-            f"<b>{text('my_teams', language)}</b>\n\n"
-            + "\n".join(team_lines)
+    try:
+        await _show_favorites(callback, store, language)
+    except StorageError:
+        await edit_or_answer(
+            callback,
+            text("storage_error", language),
+            back_keyboard(language),
         )
-
-    await callback.message.edit_text(
-        message_text,
-        reply_markup=my_teams_keyboard(language),
-    )
 
     await callback.answer()
 
@@ -103,17 +188,23 @@ async def show_my_teams(
 async def start_team_search(
     callback: CallbackQuery,
     state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
 ) -> None:
 
-    data = await state.get_data()
-    language = get_language(data)
+    language = await user_language(
+        store,
+        settings,
+        callback.from_user.id,
+    )
 
     await state.set_state(
         TeamSearchState.waiting_for_name
     )
 
-    await callback.message.edit_text(
-        text("send_team_name", language)
+    await edit_or_answer(
+        callback,
+        text("send_team_name", language),
     )
 
     await callback.answer()
@@ -123,12 +214,19 @@ async def start_team_search(
 async def search_team(
     message: Message,
     state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
+    resolver: TeamResolver | None,
+    directory: TeamDirectory,
 ) -> None:
 
-    data = await state.get_data()
-    language = get_language(data)
+    language = await user_language(
+        store,
+        settings,
+        message.from_user.id,
+    )
 
-    query = (message.text or "").strip()
+    query = " ".join((message.text or "").split())
 
     if not query:
         await message.answer(
@@ -136,27 +234,45 @@ async def search_team(
         )
         return
 
-    settings = get_settings()
-
-    if not settings.api_football_key:
-        await message.answer(
-            "API_FOOTBALL_KEY is not configured."
-        )
-        await state.clear()
+    if len(query) < MIN_QUERY_LENGTH:
+        await message.answer(text("query_too_short", language))
         return
 
-    provider = ApiFootballProvider(
-        settings.api_football_key
-    )
+    if len(query) > MAX_QUERY_LENGTH:
+        await message.answer(text("query_too_long", language))
+        return
 
-    resolver = TeamResolver(provider)
+    if resolver is None:
+        logger.error(
+            "Team search requested but API_FOOTBALL_KEY is not "
+            "configured."
+        )
+        await message.answer(
+            text("provider_auth", language),
+            reply_markup=back_keyboard(language),
+        )
+        return
 
     try:
-        teams = await resolver.resolve(query)
-    finally:
-        await provider.close()
+        result = await resolver.resolve(query)
+    except Exception:
+        logger.exception("Unexpected failure during team search.")
+        await message.answer(
+            text("provider_unavailable", language),
+            reply_markup=back_keyboard(language),
+        )
+        return
 
-    if not teams:
+    error_key = _RESOLVE_ERROR_KEYS.get(result.status)
+
+    if error_key is not None:
+        await message.answer(
+            text(error_key, language),
+            reply_markup=back_keyboard(language),
+        )
+        return
+
+    if not result.teams:
         await message.answer(
             text("no_teams_found", language)
         )
@@ -165,85 +281,147 @@ async def search_team(
         )
         return
 
+    # Buttons carry only team ids; remember the teams so the
+    # selection can be resolved (and validated) when pressed.
+    await directory.remember(result.teams)
+
     await message.answer(
         text("team_search_results", language),
         reply_markup=teams_keyboard(
-            teams,
+            result.teams,
             language,
         ),
     )
 
-    # Preserve language and favorite_teams.
-    # Only leave the search state.
+    # Only leave the search state: language and favorites live in
+    # the database and are unaffected.
     await state.set_state(None)
 
 
-@router.callback_query(
-    F.data.startswith("team:add:")
-)
+@router.callback_query(F.data.startswith("team:add:"))
 async def add_team(
     callback: CallbackQuery,
-    state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
+    directory: TeamDirectory,
 ) -> None:
 
-    data = await state.get_data()
-    language = get_language(data)
-
-    parts = callback.data.split(":", 3)
-
-    team_id = int(parts[2])
-    team_name = parts[3]
-
-    favorite_teams = data.get(
-        "favorite_teams",
-        [],
+    language = await user_language(
+        store,
+        settings,
+        callback.from_user.id,
     )
 
-    if any(
-        team["id"] == team_id
-        for team in favorite_teams
-    ):
+    team_id = parse_team_callback(callback.data, ACTION_ADD_TEAM)
+
+    if team_id is None:
+        key = (
+            "search_expired"
+            if is_legacy_add_callback(callback.data)
+            else "invalid_action"
+        )
+        await callback.answer(text(key, language), show_alert=True)
+        return
+
+    team = await directory.get(team_id)
+
+    if team is None:
         await callback.answer(
-            text(
-                "team_already_added",
-                language,
-            ),
+            text("search_expired", language),
             show_alert=True,
         )
         return
 
-    if len(favorite_teams) >= 3:
+    limit = settings.free_favorite_slots
+
+    try:
+        outcome = await store.add_favorite(
+            callback.from_user.id,
+            team.id,
+            team.name,
+            limit,
+        )
+    except StorageError:
         await callback.answer(
-            text(
-                "team_limit",
-                language,
-            ),
+            text("storage_error", language),
             show_alert=True,
         )
         return
 
-    favorite_teams.append(
-        {
-            "id": team_id,
-            "name": team_name,
-        }
+    if outcome is AddFavoriteResult.DUPLICATE:
+        await callback.answer(
+            text("team_already_added", language),
+            show_alert=True,
+        )
+        return
+
+    if outcome is AddFavoriteResult.LIMIT_REACHED:
+        await callback.answer(
+            text("team_limit", language, limit=limit),
+            show_alert=True,
+        )
+        return
+
+    try:
+        await _show_favorites(
+            callback,
+            store,
+            language,
+            notice=text("team_added", language),
+        )
+    except StorageError:
+        # The team WAS saved; only refreshing the list failed.
+        await callback.answer(
+            text("team_added", language),
+            show_alert=True,
+        )
+        return
+
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("team:rm:"))
+async def remove_team(
+    callback: CallbackQuery,
+    store: PreferenceStore,
+    settings: Settings,
+) -> None:
+
+    language = await user_language(
+        store,
+        settings,
+        callback.from_user.id,
     )
 
-    await state.update_data(
-        favorite_teams=favorite_teams
-    )
+    team_id = parse_team_callback(callback.data, ACTION_REMOVE_TEAM)
 
-    await callback.message.edit_text(
-        f"<b>{text('my_teams', language)}</b>\n\n"
-        f"{text('team_added', language)}\n\n"
-        + "\n".join(
-            f"{index}. ⚽ {team['name']}"
-            for index, team in enumerate(
-                favorite_teams,
-                start=1,
-            )
-        ),
-        reply_markup=my_teams_keyboard(language),
-    )
+    if team_id is None:
+        await callback.answer(
+            text("invalid_action", language),
+            show_alert=True,
+        )
+        return
+
+    try:
+        removed = await store.remove_favorite(
+            callback.from_user.id,
+            team_id,
+        )
+        notice = text(
+            "team_removed" if removed else "team_not_in_favorites",
+            language,
+        )
+        await _show_favorites(
+            callback,
+            store,
+            language,
+            notice=notice,
+        )
+    except StorageError:
+        await callback.answer(
+            text("storage_error", language),
+            show_alert=True,
+        )
+        return
 
     await callback.answer()

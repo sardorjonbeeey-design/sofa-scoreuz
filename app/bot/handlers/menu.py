@@ -2,7 +2,10 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.bot.handlers.common import edit_or_answer, user_language
+from app.config import Settings
 from app.localization.i18n import text
+from app.storage.store import PreferenceStore
 
 router = Router()
 
@@ -46,13 +49,21 @@ def main_menu(language: str) -> InlineKeyboardMarkup:
 async def main_menu_handler(
     callback: CallbackQuery,
     state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
 ) -> None:
-    data = await state.get_data()
-    language = data.get("language", "uz")
+    language = await user_language(
+        store,
+        settings,
+        callback.from_user.id,
+    )
 
-    await callback.message.edit_text(
+    await state.set_state(None)
+
+    await edit_or_answer(
+        callback,
         text("welcome", language),
-        reply_markup=main_menu(language),
+        main_menu(language),
     )
 
     await callback.answer()
@@ -66,13 +77,18 @@ async def main_menu_handler(
 }))
 async def coming_soon_handler(
     callback: CallbackQuery,
-    state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
 ) -> None:
-    data = await state.get_data()
-    language = data.get("language", "uz")
+    language = await user_language(
+        store,
+        settings,
+        callback.from_user.id,
+    )
 
     await callback.answer()
 
-    await callback.message.answer(
-        text("coming_soon", language)
-    )
+    answer = getattr(callback.message, "answer", None)
+
+    if answer is not None:
+        await answer(text("coming_soon", language))

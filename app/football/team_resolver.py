@@ -1,8 +1,19 @@
-import random
+import logging
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
+from enum import Enum
 
+from app.football.errors import (
+    ProviderAuthError,
+    ProviderError,
+    ProviderQuotaError,
+    ProviderRequestError,
+    ProviderUnavailableError,
+)
 from app.football.models import Team
 from app.football.provider import FootballProvider
+
+logger = logging.getLogger(__name__)
 
 
 ALIASES = {
@@ -81,6 +92,30 @@ FLAG_EMOJIS = {
 }
 
 
+FAMOUS_NAMES = {
+    "Barcelona",
+    "Real Madrid",
+    "Bayern Munich",
+    "Bayer Leverkusen",
+    "Manchester United",
+    "Manchester City",
+    "Liverpool",
+    "Arsenal",
+    "Chelsea",
+    "Paris Saint-Germain",
+    "Juventus",
+    "Inter",
+    "AC Milan",
+    "Borussia Dortmund",
+    "Galatasaray",
+    "Fenerbahce",
+    "Besiktas",
+    "Al Hilal",
+    "Al Nassr",
+    "Inter Miami CF",
+}
+
+
 def normalize(value: str) -> str:
     return " ".join(
         value.lower()
@@ -106,28 +141,25 @@ def country_priority(team: Team) -> int:
 
 
 def disambiguator(team: Team) -> str:
-    options = []
+    """Stable label that tells same-named teams apart.
+
+    The label depends only on the team's own data, so the same team
+    is rendered identically on every search: "<flag> <country>" when
+    the country is known, otherwise the team code.
+    """
+    parts: list[str] = []
 
     if team.country:
         flag = FLAG_EMOJIS.get(team.country)
 
         if flag:
-            options.append(flag)
+            parts.append(flag)
 
-        code = COUNTRY_CODES.get(team.country)
+        parts.append(team.country)
+    elif team.code:
+        parts.append(team.code)
 
-        if code:
-            options.append(f"({code})")
-
-        options.append(f"· {team.country}")
-
-    if team.code:
-        options.append(f"· {team.code}")
-
-    if not options:
-        return ""
-
-    return random.choice(options)
+    return " ".join(parts)
 
 
 def display_name(team: Team) -> str:
@@ -139,12 +171,47 @@ def display_name(team: Team) -> str:
     return team.name
 
 
+class ResolveStatus(str, Enum):
+    MATCHED = "matched"              # exactly one candidate
+    AMBIGUOUS = "ambiguous"          # several candidates, user picks
+    NO_MATCH = "no_match"            # provider answered: nothing found
+    QUOTA_EXCEEDED = "quota_exceeded"
+    AUTH_ERROR = "auth_error"
+    UNAVAILABLE = "unavailable"      # network / timeout / 5xx
+
+
+@dataclass(frozen=True)
+class ResolveResult:
+    status: ResolveStatus
+    teams: list[Team] = field(default_factory=list)
+
+    @property
+    def has_teams(self) -> bool:
+        return bool(self.teams)
+
+
+# Higher number = reported first when several queries failed.
+_ERROR_SEVERITY = {
+    ProviderAuthError: (3, ResolveStatus.AUTH_ERROR),
+    ProviderQuotaError: (2, ResolveStatus.QUOTA_EXCEEDED),
+    ProviderUnavailableError: (1, ResolveStatus.UNAVAILABLE),
+}
+
+
+def _status_for_error(error: ProviderError) -> tuple[int, ResolveStatus]:
+    for error_type, outcome in _ERROR_SEVERITY.items():
+        if isinstance(error, error_type):
+            return outcome
+
+    return (1, ResolveStatus.UNAVAILABLE)
+
+
 class TeamResolver:
 
     def __init__(self, provider: FootballProvider):
         self.provider = provider
 
-    async def resolve(self, query: str) -> list[Team]:
+    def _search_queries(self, query: str) -> list[str]:
         normalized_query = normalize(query)
 
         search_queries = [query]
@@ -170,14 +237,60 @@ class TeamResolver:
         if normalized_query.startswith("ps"):
             search_queries.append("Paris Saint-Germain")
 
-        found: dict[int, Team] = {}
+        # Never send the same search twice: every upstream call
+        # counts against the provider quota.
+        unique: list[str] = []
+        seen: set[str] = set()
 
-        for search_query in search_queries:
+        for item in search_queries:
+            key = normalize(item)
+
+            if key not in seen:
+                seen.add(key)
+                unique.append(item)
+
+        return unique
+
+    async def resolve(self, query: str) -> ResolveResult:
+        """Find teams for ``query``.
+
+        Provider failures are reported through ``ResolveResult.status``
+        and are never confused with a genuine "no match".
+        """
+        normalized_query = normalize(query)
+
+        found: dict[int, Team] = {}
+        errors: list[ProviderError] = []
+
+        for search_query in self._search_queries(query):
             try:
-                teams = await self.provider.search_teams(
-                    search_query
+                teams = await self.provider.search_teams(search_query)
+            except ProviderRequestError as exc:
+                # The provider rejected this particular search string
+                # (for example non-latin text). Other queries, such as
+                # alias targets, may still work.
+                logger.info(
+                    "Provider rejected search %r: %s",
+                    search_query,
+                    exc,
                 )
-            except Exception:
+                continue
+            except ProviderError as exc:
+                logger.warning(
+                    "Provider failure during team search (%s): %s",
+                    type(exc).__name__,
+                    exc,
+                )
+                errors.append(exc)
+
+                # Quota and auth failures will fail again immediately:
+                # stop instead of spending more requests.
+                if isinstance(
+                    exc,
+                    (ProviderQuotaError, ProviderAuthError),
+                ):
+                    break
+
                 continue
 
             for team in teams:
@@ -186,7 +299,23 @@ class TeamResolver:
         teams = list(found.values())
 
         if not teams:
-            return []
+            if errors:
+                _, status = max(
+                    (_status_for_error(e) for e in errors),
+                    key=lambda item: item[0],
+                )
+                return ResolveResult(status)
+
+            # Either the provider answered with nothing, or it
+            # rejected every query string as unsearchable.
+            return ResolveResult(ResolveStatus.NO_MATCH)
+
+        if errors:
+            logger.warning(
+                "Returning partial team results; %s upstream "
+                "request(s) failed.",
+                len(errors),
+            )
 
         scored = []
 
@@ -219,33 +348,7 @@ class TeamResolver:
             country_bonus = country_priority(team)
 
             # Exact famous-club shortcuts.
-            famous_bonus = 0
-
-            famous_names = {
-                "Barcelona",
-                "Real Madrid",
-                "Bayern Munich",
-                "Bayer Leverkusen",
-                "Manchester United",
-                "Manchester City",
-                "Liverpool",
-                "Arsenal",
-                "Chelsea",
-                "Paris Saint-Germain",
-                "Juventus",
-                "Inter",
-                "AC Milan",
-                "Borussia Dortmund",
-                "Galatasaray",
-                "Fenerbahce",
-                "Besiktas",
-                "Al Hilal",
-                "Al Nassr",
-                "Inter Miami CF",
-            }
-
-            if team.name in famous_names:
-                famous_bonus = 75
+            famous_bonus = 75 if team.name in FAMOUS_NAMES else 0
 
             total_score = (
                 match_score
@@ -261,17 +364,22 @@ class TeamResolver:
                 )
             )
 
+        # Ties are broken by name and id so ordering never varies.
         scored.sort(
-            key=lambda item: item[0],
-            reverse=True,
+            key=lambda item: (-item[0], item[1].name, item[1].id),
         )
 
         # Keep the search compact. We don't want a wall of
         # obscure clubs even when the API returns many matches.
-        return [
-            team
-            for _, team in scored[:8]
-        ]
+        top = [team for _, team in scored[:8]]
+
+        status = (
+            ResolveStatus.MATCHED
+            if len(top) == 1
+            else ResolveStatus.AMBIGUOUS
+        )
+
+        return ResolveResult(status, top)
 
 
 def format_team_result(team: Team) -> str:
