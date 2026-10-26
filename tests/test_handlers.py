@@ -22,7 +22,6 @@ from app.football.errors import (
     ProviderQuotaError,
     ProviderUnavailableError,
 )
-from app.football.provider import FootballProvider
 from app.football.team_directory import TeamDirectory
 from app.football.team_resolver import TeamResolver
 from app.localization.i18n import text
@@ -34,12 +33,13 @@ from tests.conftest import (
     make_settings,
     make_team,
 )
+from tests.fakes import StubProvider
 
 USER = 42
 BARCA = make_team(529, "Barcelona", country="Spain")
 
 
-class ScriptedProvider(FootballProvider):
+class ScriptedProvider(StubProvider):
     def __init__(self, teams=None, error=None):
         self.teams = teams or []
         self.error = error
@@ -180,7 +180,7 @@ async def test_menu_uses_the_saved_language(store, state, settings):
 # --- searching ------------------------------------------------------------
 
 
-async def test_search_shows_results_with_id_only_buttons(
+async def test_search_results_open_the_team_page_with_id_only_buttons(
     store, state, settings, directory
 ):
     provider = ScriptedProvider([BARCA])
@@ -198,7 +198,10 @@ async def test_search_shows_results_with_id_only_buttons(
         for row in kwargs["reply_markup"].inline_keyboard
         for b in row
     ]
-    assert "team:add:529" in data
+    # A result opens the team page (info + fixtures); adding to
+    # favorites happens from there, by id only.
+    assert "team:view:529" in data
+    assert all(len(d.encode("utf-8")) <= 64 for d in data)
     assert await state.get_state() is None
     assert await directory.get(529) == BARCA
 

@@ -19,6 +19,12 @@ class Settings:
     free_favorite_slots: int
     log_level: str
     require_database: bool = False
+    # Timezone used to decide what "today" is and to show kickoff times.
+    display_timezone: str = "Asia/Tashkent"
+    # How long (seconds) live scores / fixture lists are shared between
+    # users before the provider is asked again.
+    live_cache_ttl: int = 60
+    fixtures_cache_ttl: int = 300
 
 
 def _int_env(name: str, default: int) -> int:
@@ -37,6 +43,20 @@ def _int_env(name: str, default: int) -> int:
             default,
         )
         return default
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    value = _int_env(name, default)
+
+    if value < 1:
+        logger.warning(
+            "Environment variable %s must be at least 1; using %s.",
+            name,
+            default,
+        )
+        return default
+
+    return value
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -62,4 +82,11 @@ def get_settings() -> Settings:
         free_favorite_slots=_int_env("FREE_FAVORITE_SLOTS", 3),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         require_database=_bool_env("REQUIRE_DATABASE", False),
+        display_timezone=(
+            os.getenv("DISPLAY_TIMEZONE", "").strip() or "Asia/Tashkent"
+        ),
+        live_cache_ttl=_positive_int_env("LIVE_CACHE_TTL_SECONDS", 60),
+        fixtures_cache_ttl=_positive_int_env(
+            "FIXTURES_CACHE_TTL_SECONDS", 300
+        ),
     )

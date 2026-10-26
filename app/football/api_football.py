@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import httpx
@@ -12,7 +12,14 @@ from app.football.errors import (
     ProviderRequestError,
     ProviderUnavailableError,
 )
-from app.football.models import Fixture, MatchEvent, Team
+from app.football.models import (
+    Fixture,
+    League,
+    MatchEvent,
+    StandingRow,
+    StandingsGroup,
+    Team,
+)
 from app.football.provider import FootballProvider
 
 logger = logging.getLogger(__name__)
@@ -113,6 +120,9 @@ class ApiFootballProvider(FootballProvider):
         )
         self.max_retries = max(0, max_retries)
         self.retry_delay = retry_delay
+        # Daily quota as last reported by the provider (None = unknown).
+        self.requests_remaining: int | None = None
+        self.requests_limit: int | None = None
 
     async def close(self) -> None:
         await self.client.aclose()
@@ -159,6 +169,7 @@ class ApiFootballProvider(FootballProvider):
                         f"{path}: HTTP {status}"
                     )
                 else:
+                    self._record_quota(response)
                     return self._decode(path, response)
 
             if attempt >= self.max_retries:
@@ -199,30 +210,37 @@ class ApiFootballProvider(FootballProvider):
 
         return payload
 
+    def _record_quota(self, response: httpx.Response) -> None:
+        """Remember the daily quota the provider reports, if it does."""
+        remaining = _header_int(response, "x-ratelimit-requests-remaining")
+        limit = _header_int(response, "x-ratelimit-requests-limit")
+
+        if limit is not None:
+            self.requests_limit = limit
+
+        if remaining is None:
+            return
+
+        self.requests_remaining = remaining
+
+        if remaining <= LOW_QUOTA_WARNING:
+            logger.warning(
+                "API-Football daily quota is nearly used up: "
+                "%s of %s requests left.",
+                remaining,
+                self.requests_limit if self.requests_limit else "?",
+            )
+
     async def search_teams(self, query: str) -> list[Team]:
         data = await self._get("/teams", {"search": query})
 
-        teams: list[Team] = []
+        return _parse_items(data, _team_from_item, "team")
 
-        for item in data.get("response", []):
-            team = (item or {}).get("team") or {}
+    async def get_team(self, team_id: int) -> Team | None:
+        data = await self._get("/teams", {"id": team_id})
+        teams = _parse_items(data, _team_from_item, "team")
 
-            if "id" not in team or not team.get("name"):
-                logger.warning("Skipping malformed team entry.")
-                continue
-
-            teams.append(
-                Team(
-                    id=team["id"],
-                    name=team["name"],
-                    logo_url=team.get("logo"),
-                    country=team.get("country"),
-                    code=team.get("code"),
-                    national=bool(team.get("national")),
-                )
-            )
-
-        return teams
+        return teams[0] if teams else None
 
     async def get_team_fixtures(
         self,
@@ -230,7 +248,6 @@ class ApiFootballProvider(FootballProvider):
         from_date: datetime,
         to_date: datetime,
     ) -> list[Fixture]:
-
         data = await self._get(
             "/fixtures",
             {
@@ -240,34 +257,82 @@ class ApiFootballProvider(FootballProvider):
             },
         )
 
-        fixtures = []
+        return _parse_items(data, _fixture_from_item, "fixture")
+
+    async def get_live_fixtures(self) -> list[Fixture]:
+        data = await self._get("/fixtures", {"live": "all"})
+
+        return _parse_items(data, _fixture_from_item, "fixture")
+
+    async def get_fixtures_by_date(
+        self,
+        day: date,
+        timezone: str | None = None,
+    ) -> list[Fixture]:
+        params: dict[str, Any] = {"date": day.isoformat()}
+
+        if timezone:
+            params["timezone"] = timezone
+
+        data = await self._get("/fixtures", params)
+
+        return _parse_items(data, _fixture_from_item, "fixture")
+
+    async def get_leagues(
+        self,
+        *,
+        league_id: int | None = None,
+        country: str | None = None,
+    ) -> list[League]:
+        params: dict[str, Any] = {}
+
+        if league_id is not None:
+            params["id"] = league_id
+
+        if country:
+            params["country"] = country
+            params["current"] = "true"
+
+        if not params:
+            raise ValueError("league_id or country is required.")
+
+        data = await self._get("/leagues", params)
+
+        return _parse_items(data, _league_from_item, "league")
+
+    async def get_standings(
+        self,
+        league_id: int,
+        season: int,
+    ) -> list[StandingsGroup]:
+        data = await self._get(
+            "/standings",
+            {"league": league_id, "season": season},
+        )
+
+        groups: list[StandingsGroup] = []
 
         for item in data.get("response", []):
-            fixture = item["fixture"]
-            teams = item["teams"]
+            try:
+                tables = item["league"]["standings"]
+            except (KeyError, TypeError):
+                logger.warning("Skipping malformed standings entry.")
+                continue
 
-            fixtures.append(
-                Fixture(
-                    id=fixture["id"],
-                    home_team=Team(
-                        id=teams["home"]["id"],
-                        name=teams["home"]["name"],
-                        logo_url=teams["home"].get("logo"),
-                    ),
-                    away_team=Team(
-                        id=teams["away"]["id"],
-                        name=teams["away"]["name"],
-                        logo_url=teams["away"].get("logo"),
-                    ),
-                    start_time=datetime.fromisoformat(
-                        fixture["date"].replace("Z", "+00:00")
-                    ),
-                    competition=item["league"]["name"],
-                    venue=(fixture.get("venue") or {}).get("name"),
-                )
-            )
+            for table in tables or []:
+                rows = []
 
-        return fixtures
+                for raw in table or []:
+                    try:
+                        rows.append(_standing_row(raw))
+                    except (KeyError, TypeError, ValueError):
+                        logger.warning("Skipping malformed standings row.")
+
+                if rows:
+                    name = (table[0] or {}).get("group")
+                    groups.append(StandingsGroup(name, tuple(rows)))
+
+        return groups
 
     async def get_live_events(
         self,
@@ -295,3 +360,135 @@ class ApiFootballProvider(FootballProvider):
                 )
 
         return events
+
+
+# --- response parsing -------------------------------------------------
+
+LOW_QUOTA_WARNING = 10
+
+
+def _header_int(response: httpx.Response, name: str) -> int | None:
+    try:
+        return int(response.headers.get(name, ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_items(data: dict, parse, label: str) -> list:
+    """Parse ``data["response"]``, skipping entries that are malformed.
+
+    One broken entry must not hide the other results, and a missing
+    field must never be replaced by invented data.
+    """
+    parsed = []
+
+    for item in data.get("response", []):
+        try:
+            result = parse(item)
+        except (KeyError, TypeError, ValueError, AttributeError):
+            logger.warning("Skipping malformed %s entry.", label)
+            continue
+
+        if result is not None:
+            parsed.append(result)
+
+    return parsed
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _team_from_item(item: dict) -> Team | None:
+    team = (item or {}).get("team") or {}
+
+    if "id" not in team or not team.get("name"):
+        return None
+
+    venue = (item or {}).get("venue") or {}
+
+    return Team(
+        id=team["id"],
+        name=team["name"],
+        logo_url=team.get("logo"),
+        country=team.get("country"),
+        code=team.get("code"),
+        national=bool(team.get("national")),
+        founded=_int_or_none(team.get("founded")),
+        venue_name=venue.get("name"),
+        venue_city=venue.get("city"),
+        venue_capacity=_int_or_none(venue.get("capacity")),
+    )
+
+
+def _fixture_team(raw: dict) -> Team:
+    return Team(
+        id=raw["id"],
+        name=raw["name"],
+        logo_url=raw.get("logo"),
+    )
+
+
+def _fixture_from_item(item: dict) -> Fixture:
+    fixture = item["fixture"]
+    teams = item["teams"]
+    league = item.get("league") or {}
+    status = fixture.get("status") or {}
+    goals = item.get("goals") or {}
+
+    return Fixture(
+        id=fixture["id"],
+        home_team=_fixture_team(teams["home"]),
+        away_team=_fixture_team(teams["away"]),
+        start_time=datetime.fromisoformat(
+            fixture["date"].replace("Z", "+00:00")
+        ),
+        competition=league["name"],
+        venue=(fixture.get("venue") or {}).get("name"),
+        status=status.get("short") or "NS",
+        elapsed=_int_or_none(status.get("elapsed")),
+        home_goals=_int_or_none(goals.get("home")),
+        away_goals=_int_or_none(goals.get("away")),
+        league_id=_int_or_none(league.get("id")),
+        league_country=league.get("country"),
+    )
+
+
+def _league_from_item(item: dict) -> League:
+    league = item["league"]
+    country = (item.get("country") or {}).get("name")
+    current = None
+
+    for season in item.get("seasons") or []:
+        if season.get("current"):
+            current = _int_or_none(season.get("year"))
+
+    return League(
+        id=league["id"],
+        name=league["name"],
+        country=country,
+        type=league.get("type"),
+        logo_url=league.get("logo"),
+        current_season=current,
+    )
+
+
+def _standing_row(raw: dict) -> StandingRow:
+    played = raw["all"]
+
+    return StandingRow(
+        rank=int(raw["rank"]),
+        team=_fixture_team(raw["team"]),
+        played=int(played["played"]),
+        won=int(played["win"]),
+        drawn=int(played["draw"]),
+        lost=int(played["lose"]),
+        goals_for=int(played["goals"]["for"]),
+        goals_against=int(played["goals"]["against"]),
+        goal_diff=int(raw["goalsDiff"]),
+        points=int(raw["points"]),
+        form=raw.get("form"),
+    )

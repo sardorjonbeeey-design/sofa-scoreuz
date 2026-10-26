@@ -4,9 +4,11 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.config import Settings
+from app.bot.handlers.football import router as football_router
 from app.bot.handlers.menu import router as menu_router
 from app.bot.handlers.start import router as start_router
 from app.bot.handlers.teams import router as teams_router
+from app.football.service import FootballService
 from app.football.team_directory import TeamDirectory
 from app.football.team_resolver import TeamResolver
 from app.storage.store import MemoryPreferenceStore, PreferenceStore
@@ -29,6 +31,7 @@ def create_dispatcher(
     store: PreferenceStore | None = None,
     resolver: TeamResolver | None = None,
     directory: TeamDirectory | None = None,
+    service: FootballService | None = None,
 ) -> Dispatcher:
     # FSM storage only holds the short-lived "waiting for a team
     # name" state. Language and favorites are NOT kept here: they
@@ -42,10 +45,12 @@ def create_dispatcher(
         store=store or MemoryPreferenceStore(settings.default_language),
         resolver=resolver,
         directory=directory or TeamDirectory(),
+        service=service,
     )
 
     dispatcher.include_router(start_router)
     dispatcher.include_router(menu_router)
     dispatcher.include_router(teams_router)
+    dispatcher.include_router(football_router)
 
     return dispatcher

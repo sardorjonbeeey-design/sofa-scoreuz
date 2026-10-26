@@ -8,12 +8,12 @@ from app.football.caching import (
     search_cache_key,
 )
 from app.football.errors import ProviderQuotaError
-from app.football.provider import FootballProvider
 from app.football.team_directory import TeamDirectory
 from tests.conftest import make_team
+from tests.fakes import StubProvider
 
 
-class CountingProvider(FootballProvider):
+class CountingProvider(StubProvider):
     def __init__(self, teams=None, error=None, delay=0.0):
         self.teams = teams or []
         self.error = error

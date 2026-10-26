@@ -6,16 +6,16 @@ from app.football.errors import (
     ProviderRequestError,
     ProviderUnavailableError,
 )
-from app.football.provider import FootballProvider
 from app.football.team_resolver import (
     ResolveStatus,
     TeamResolver,
     display_name,
 )
 from tests.conftest import make_team
+from tests.fakes import StubProvider
 
 
-class FakeProvider(FootballProvider):
+class FakeProvider(StubProvider):
     """Scripted provider: maps query -> teams or an exception."""
 
     def __init__(self, script):

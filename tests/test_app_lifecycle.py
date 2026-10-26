@@ -6,9 +6,9 @@ import pytest
 from aiogram import Dispatcher
 
 import app.main as app_main
-from app.football.provider import FootballProvider
 from app.storage.store import MemoryPreferenceStore
 from tests.conftest import make_settings
+from tests.fakes import StubProvider
 
 
 class SpyStore(MemoryPreferenceStore):
@@ -18,22 +18,6 @@ class SpyStore(MemoryPreferenceStore):
 
     async def close(self):
         self.events.append("store")
-
-
-@pytest.fixture(autouse=True)
-def detach_handler_routers():
-    """Let several tests build a real Dispatcher in one process.
-
-    The handler routers are module-level singletons and aiogram allows
-    a router to belong to one dispatcher only. The application builds
-    exactly one dispatcher per process, so only tests need this reset.
-    """
-    from app.bot.handlers import menu, start, teams
-
-    for module in (start, menu, teams):
-        module.router._parent_router = None
-
-    yield
 
 
 @pytest.fixture
@@ -59,7 +43,7 @@ def events(monkeypatch):
     monkeypatch.setattr(app_main, "create_store", fake_create_store)
 
     # --- football provider -------------------------------------------
-    class SpyProvider(FootballProvider):
+    class SpyProvider(StubProvider):
         def __init__(self, api_key):
             log.append("provider-start")
 

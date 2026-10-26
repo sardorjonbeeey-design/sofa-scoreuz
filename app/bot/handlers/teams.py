@@ -4,18 +4,28 @@ from html import escape
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.bot.callbacks import (
     ACTION_ADD_TEAM,
     ACTION_REMOVE_TEAM,
+    ACTION_VIEW_TEAM,
     is_legacy_add_callback,
     parse_team_callback,
     team_callback,
 )
+from app.bot.formatting import format_team_page, freshness_footer
 from app.bot.handlers.common import edit_or_answer, user_language
 from app.config import Settings
+from app.football.errors import ProviderError
+from app.football.models import Team
+from app.football.service import FootballService
 from app.football.team_directory import TeamDirectory
 from app.football.team_resolver import (
     ResolveStatus,
@@ -55,7 +65,7 @@ def teams_keyboard(teams, language: str):
     for team in teams:
         builder.button(
             text=format_team_result(team),
-            callback_data=team_callback(ACTION_ADD_TEAM, team.id),
+            callback_data=team_callback(ACTION_VIEW_TEAM, team.id),
         )
 
     builder.button(
@@ -72,7 +82,7 @@ def my_teams_keyboard(
     language: str,
     favorites: list[FavoriteTeamRecord] | None = None,
 ):
-    builder = InlineKeyboardBuilder()
+    rows: list[list[InlineKeyboardButton]] = []
 
     for favorite in favorites or []:
         name = favorite.team_name
@@ -80,27 +90,44 @@ def my_teams_keyboard(
         if len(name) > REMOVE_BUTTON_NAME_LIMIT:
             name = name[: REMOVE_BUTTON_NAME_LIMIT - 1] + "…"
 
-        builder.button(
-            text=f"❌ {name}",
-            callback_data=team_callback(
-                ACTION_REMOVE_TEAM,
-                favorite.team_id,
-            ),
+        rows.append(
+            [
+                # Opens the team page (info and fixtures).
+                InlineKeyboardButton(
+                    text=f"⚽ {name}",
+                    callback_data=team_callback(
+                        ACTION_VIEW_TEAM,
+                        favorite.team_id,
+                    ),
+                ),
+                InlineKeyboardButton(
+                    text="❌",
+                    callback_data=team_callback(
+                        ACTION_REMOVE_TEAM,
+                        favorite.team_id,
+                    ),
+                ),
+            ]
         )
 
-    builder.button(
-        text=text("add_team", language),
-        callback_data="team:search",
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=text("add_team", language),
+                callback_data="team:search",
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=text("back", language),
+                callback_data="menu:main",
+            )
+        ]
     )
 
-    builder.button(
-        text=text("back", language),
-        callback_data="menu:main",
-    )
-
-    builder.adjust(1)
-
-    return builder.as_markup()
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def back_keyboard(language: str):
@@ -202,9 +229,11 @@ async def start_team_search(
         TeamSearchState.waiting_for_name
     )
 
+    # A way out, so the prompt is never a dead end.
     await edit_or_answer(
         callback,
         text("send_team_name", language),
+        back_keyboard(language),
     )
 
     await callback.answer()
@@ -298,12 +327,161 @@ async def search_team(
     await state.set_state(None)
 
 
+async def lookup_team(
+    team_id: int,
+    directory: TeamDirectory,
+    service: FootballService | None,
+) -> Team | None:
+    """Find a team by id without trusting anything from the callback.
+
+    Recent search results first (free); otherwise ask the provider
+    (cached for a day). ``None`` means the team cannot be identified.
+    """
+    team = await directory.get(team_id)
+
+    if team is not None or service is None:
+        return team
+
+    try:
+        team = await service.provider.get_team(team_id)
+    except ProviderError as exc:
+        logger.warning(
+            "Could not look up team %s (%s).",
+            team_id,
+            type(exc).__name__,
+        )
+        return None
+
+    if team is not None:
+        await directory.remember([team])
+
+    return team
+
+
+def team_page_keyboard(
+    language: str,
+    team_id: int,
+    is_favorite: bool,
+) -> InlineKeyboardMarkup:
+    if is_favorite:
+        toggle = InlineKeyboardButton(
+            text=text("remove_from_favorites", language),
+            callback_data=team_callback(ACTION_REMOVE_TEAM, team_id),
+        )
+    else:
+        toggle = InlineKeyboardButton(
+            text=text("add_to_favorites", language),
+            callback_data=team_callback(ACTION_ADD_TEAM, team_id),
+        )
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [toggle],
+            [
+                InlineKeyboardButton(
+                    text=text("back", language),
+                    callback_data="menu:teams",
+                )
+            ],
+        ]
+    )
+
+
+@router.callback_query(F.data.startswith("team:view:"))
+async def view_team(
+    callback: CallbackQuery,
+    state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
+    directory: TeamDirectory,
+    service: FootballService | None = None,
+) -> None:
+    """Team page: details, next matches, last results, favorite toggle."""
+    language = await user_language(
+        store,
+        settings,
+        callback.from_user.id,
+    )
+
+    team_id = parse_team_callback(callback.data, ACTION_VIEW_TEAM)
+
+    if team_id is None:
+        await callback.answer(
+            text("invalid_action", language),
+            show_alert=True,
+        )
+        return
+
+    await state.set_state(None)
+
+    try:
+        favorites = await store.list_favorites(callback.from_user.id)
+    except StorageError:
+        await callback.answer(
+            text("storage_error", language),
+            show_alert=True,
+        )
+        return
+
+    saved = next((f for f in favorites if f.team_id == team_id), None)
+    team = await lookup_team(team_id, directory, service)
+
+    if team is None and saved is not None:
+        # Provider unreachable, but the user saved this team earlier.
+        team = Team(id=saved.team_id, name=saved.team_name)
+
+    if team is None:
+        await callback.answer(
+            text("search_expired", language),
+            show_alert=True,
+        )
+        return
+
+    matches = None
+    footer = ""
+
+    if service is not None:
+        try:
+            snapshot = await service.team_matches(team_id)
+        except ProviderError as exc:
+            logger.warning(
+                "Fixtures for team %s unavailable (%s).",
+                team_id,
+                type(exc).__name__,
+            )
+        else:
+            matches = snapshot.value
+            footer = "\n\n" + freshness_footer(
+                snapshot.fetched_at,
+                snapshot.stale,
+                language=language,
+                tz=service.tz,
+                tz_name=service.timezone_name,
+            )
+
+    tz = service.tz if service is not None else None
+
+    if tz is None:
+        from datetime import timezone as _utc
+
+        tz = _utc.utc
+
+    await edit_or_answer(
+        callback,
+        format_team_page(team, language, tz, matches) + footer,
+        team_page_keyboard(language, team_id, saved is not None),
+    )
+
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("team:add:"))
 async def add_team(
     callback: CallbackQuery,
     store: PreferenceStore,
     settings: Settings,
     directory: TeamDirectory,
+    service: FootballService | None = None,
 ) -> None:
 
     language = await user_language(
@@ -323,7 +501,7 @@ async def add_team(
         await callback.answer(text(key, language), show_alert=True)
         return
 
-    team = await directory.get(team_id)
+    team = await lookup_team(team_id, directory, service)
 
     if team is None:
         await callback.answer(

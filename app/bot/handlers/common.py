@@ -3,6 +3,11 @@ import logging
 from aiogram.exceptions import TelegramBadRequest
 
 from app.config import Settings
+from app.football.errors import (
+    ProviderAuthError,
+    ProviderError,
+    ProviderQuotaError,
+)
 from app.localization.i18n import normalize_language
 from app.storage.database import StorageError
 from app.storage.store import PreferenceStore
@@ -58,3 +63,32 @@ async def edit_or_answer(
 
     if answer is not None:
         await answer(message_text, reply_markup=reply_markup)
+
+
+def provider_error_key(error: ProviderError) -> str:
+    """Localization key for a provider failure (never leaks details)."""
+    if isinstance(error, ProviderQuotaError):
+        return "provider_quota"
+
+    if isinstance(error, ProviderAuthError):
+        return "provider_auth"
+
+    return "provider_unavailable"
+
+
+async def favorite_team_ids(
+    store: PreferenceStore,
+    telegram_id: int,
+) -> set[int]:
+    """Ids of the user's favorite teams.
+
+    Used only to highlight matches, so a storage failure degrades to
+    "no highlights" instead of breaking the screen. The store has
+    already logged the failure.
+    """
+    try:
+        favorites = await store.list_favorites(telegram_id)
+    except StorageError:
+        return set()
+
+    return {favorite.team_id for favorite in favorites}

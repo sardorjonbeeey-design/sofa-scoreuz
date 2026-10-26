@@ -11,8 +11,9 @@ from aiogram.types import (
 )
 
 from app.bot.handlers.common import edit_or_answer, user_language
-from app.bot.handlers.menu import main_menu
+from app.bot.handlers.menu import back_to_menu_keyboard, main_menu
 from app.config import Settings
+from app.football.service import FootballService
 from app.localization.i18n import SUPPORTED_LANGUAGES, text
 from app.storage.database import StorageError
 from app.storage.store import PreferenceStore
@@ -106,3 +107,36 @@ async def language_handler(
         text("welcome", language),
         main_menu(language),
     )
+
+
+@router.callback_query(F.data == "menu:settings")
+async def settings_handler(
+    callback: CallbackQuery,
+    state: FSMContext,
+    store: PreferenceStore,
+    settings: Settings,
+    service: FootballService | None = None,
+) -> None:
+    language = await user_language(
+        store,
+        settings,
+        callback.from_user.id,
+    )
+
+    await state.set_state(None)
+
+    timezone = service.timezone_name if service else settings.display_timezone
+    keyboard = language_keyboard()
+    keyboard.inline_keyboard.extend(
+        back_to_menu_keyboard(language).inline_keyboard
+    )
+
+    await edit_or_answer(
+        callback,
+        text("settings_title", language)
+        + "\n\n"
+        + text("settings_timezone", language, tz=timezone),
+        keyboard,
+    )
+
+    await callback.answer()

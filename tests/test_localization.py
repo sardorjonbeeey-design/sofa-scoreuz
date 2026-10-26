@@ -52,3 +52,22 @@ def test_normalize_language():
     assert normalize_language(None) == "uz"
     assert normalize_language("xx", default="en") == "en"
     assert normalize_language("xx", default="zz") == "uz"
+
+
+def test_the_coming_soon_placeholder_text_is_gone_everywhere():
+    for language in SUPPORTED_LANGUAGES:
+        assert "coming_soon" not in TEXTS[language]
+
+
+def test_every_new_screen_text_is_translated_not_copied():
+    # A key whose Russian or Uzbek text equals the English one is
+    # almost certainly an untranslated copy-paste.
+    shared_ok = {"status_LIVE"}
+
+    for key in TEXTS["en"]:
+        if key in shared_ok:
+            continue
+
+        for language in ("uz", "ru"):
+            if len(TEXTS["en"][key]) > 6:
+                assert TEXTS[language][key] != TEXTS["en"][key], (key, language)

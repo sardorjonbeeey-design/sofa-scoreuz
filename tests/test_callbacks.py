@@ -139,3 +139,72 @@ def test_team_disambiguation_label_is_deterministic():
     labels = {display_name(team) for _ in range(200)}
 
     assert labels == {"Barcelona 🇪🇸 Spain"}
+
+
+# --- match lists, leagues and team pages ----------------------------------
+
+from app.bot.callbacks import (  # noqa: E402
+    KIND_LIVE,
+    KIND_TODAY,
+    SCOPE_ALL,
+    SCOPE_TOP,
+    country_callback,
+    fixtures_callback,
+    league_callback,
+    parse_country_callback,
+    parse_fixtures_callback,
+    parse_league_callback,
+)
+
+
+@pytest.mark.parametrize("kind", [KIND_LIVE, KIND_TODAY])
+@pytest.mark.parametrize("scope", [SCOPE_TOP, SCOPE_ALL])
+@pytest.mark.parametrize("page", [0, 1, 17, 999])
+def test_match_list_payloads_round_trip_within_64_bytes(kind, scope, page):
+    data = fixtures_callback(kind, scope, page)
+
+    assert len(data.encode("utf-8")) <= 64
+    assert parse_fixtures_callback(data) == (kind, scope, page)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [None, "", "fx:", "fx:l:t", "fx:x:t:0", "fx:l:x:0", "fx:l:t:-1",
+     "fx:l:t:1000", "fx:l:t:1.5", "fx:l:t:0:extra", "FX:l:t:0", "fx:l:t: 0"],
+)
+def test_malformed_match_list_payloads_parse_to_none(data):
+    assert parse_fixtures_callback(data) is None
+
+
+def test_match_list_builder_rejects_invalid_arguments():
+    for args in (("x", "t", 0), ("l", "x", 0), ("l", "t", -1), ("l", "t", 1000)):
+        with pytest.raises(ValueError):
+            fixtures_callback(*args)
+
+
+def test_league_and_country_payloads_round_trip():
+    assert parse_league_callback(league_callback(39)) == 39
+    assert parse_country_callback(country_callback("UZ")) == "UZ"
+    assert len(league_callback(999_999_999).encode()) <= 64
+
+
+@pytest.mark.parametrize("data", [None, "", "lg:", "lg:0", "lg:-1", "lg:abc",
+                                  "lg:1234567890", "lgc:39", "lg:39:1"])
+def test_malformed_league_payloads_parse_to_none(data):
+    assert parse_league_callback(data) is None
+
+
+@pytest.mark.parametrize("data", [None, "", "lgc:", "lgc:uz", "lgc:UZZ",
+                                  "lgc:U1", "lg:39", "lgc:UZ:1"])
+def test_malformed_country_payloads_parse_to_none(data):
+    assert parse_country_callback(data) is None
+
+
+def test_team_page_payload_is_id_only_even_for_huge_ids():
+    from app.bot.callbacks import parse_team_callback, team_callback
+
+    data = team_callback("view", 2_147_483_647)
+
+    assert data == "team:view:2147483647"
+    assert parse_team_callback(data, "view") == 2_147_483_647
+    assert parse_team_callback(data, "add") is None  # wrong action

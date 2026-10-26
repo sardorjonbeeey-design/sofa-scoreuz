@@ -10,6 +10,7 @@ from app.cache.cache import MemoryCache
 from app.config import Settings, get_settings
 from app.football.api_football import ApiFootballProvider
 from app.football.caching import CachingFootballProvider
+from app.football.service import CacheTimes, FootballService
 from app.football.team_directory import TeamDirectory
 from app.football.team_resolver import TeamResolver
 from app.scheduler.scheduler import create_scheduler
@@ -84,6 +85,7 @@ async def run_application(
         stack.push_async_callback(store.close)
 
         resolver = None
+        service = None
 
         if settings.api_football_key:
             provider = CachingFootballProvider(
@@ -92,9 +94,18 @@ async def run_application(
             )
             stack.push_async_callback(provider.close)
             resolver = TeamResolver(provider)
+            service = FootballService(
+                provider,
+                timezone=settings.display_timezone,
+                times=CacheTimes(
+                    live=settings.live_cache_ttl,
+                    fixtures=settings.fixtures_cache_ttl,
+                ),
+            )
         else:
             logger.warning(
-                "API_FOOTBALL_KEY is not set: team search is disabled."
+                "API_FOOTBALL_KEY is not set: team search, live scores, "
+                "fixtures and standings are disabled."
             )
 
         bot = create_bot(settings.bot_token)
@@ -105,6 +116,7 @@ async def run_application(
             store=store,
             resolver=resolver,
             directory=TeamDirectory(),
+            service=service,
         )
 
         scheduler = create_scheduler(settings)

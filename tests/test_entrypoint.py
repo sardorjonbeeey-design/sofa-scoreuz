@@ -12,6 +12,15 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# Starting the real application means importing aiogram, whose Telegram
+# models take ~3 s to build on an idle machine but 25-45+ s on a heavily
+# loaded one or with cold bytecode caches (measured). The application
+# itself fails fast: after the imports it exits in milliseconds. The
+# limit therefore only has to separate "slow machine" from "hung".
+START_TIMEOUT_SECONDS = int(
+    os.getenv("START_COMMAND_TEST_TIMEOUT", "300")
+)
+
 
 def test_root_main_is_valid_python_with_a_main_guard():
     source = (ROOT / "main.py").read_text(encoding="utf-8")
@@ -48,14 +57,23 @@ def _run(*command: str) -> subprocess.CompletedProcess:
     # initialise storage and then stop with a clear message.
     env.update(BOT_TOKEN="", PORT="0", DATABASE_URL="", LOG_LEVEL="INFO")
 
-    return subprocess.run(
-        [sys.executable, *command],
-        cwd=ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+    try:
+        return subprocess.run(
+            [sys.executable, *command],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=START_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        # A real hang must be distinguishable from a slow machine.
+        tail = (exc.stderr or b"")
+        tail = tail.decode(errors="replace") if isinstance(tail, bytes) else tail
+        pytest.fail(
+            f"'python {' '.join(command)}' did not exit within "
+            f"{START_TIMEOUT_SECONDS}s. Last output:\n{tail[-1500:]}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -93,3 +111,14 @@ async def test_health_endpoints_respond():
                     assert "running" in await response.text()
     finally:
         await runner.cleanup()
+
+
+def test_a_hung_start_command_is_reported_as_a_clear_failure(monkeypatch):
+    # Slow machines get a generous limit, but a command that never exits
+    # must still fail loudly and say why, not hang the suite.
+    monkeypatch.setattr(
+        sys.modules[__name__], "START_TIMEOUT_SECONDS", 1
+    )
+
+    with pytest.raises(pytest.fail.Exception, match="did not exit within 1s"):
+        _run("-c", "import time; time.sleep(30)")

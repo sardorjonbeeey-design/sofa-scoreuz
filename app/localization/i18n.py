@@ -1,3 +1,5 @@
+from app.localization.football_texts import FOOTBALL_TEXTS
+
 TEXTS = {
     "uz": {
         "welcome": (
@@ -21,7 +23,6 @@ TEXTS = {
         "team_already_added": "ℹ️ Bu jamoa allaqachon qo‘shilgan.",
         "team_limit": "⚠️ Siz maksimal {limit} ta sevimli jamoa qo‘sha olasiz.",
         "no_teams_found": "❌ Jamoa topilmadi. Boshqa nom bilan urinib ko‘ring.",
-        "coming_soon": "🚧 Bu bo‘lim tez orada ishga tushadi.",
         "team_removed": "🗑 Jamoa sevimlilardan olib tashlandi.",
         "team_not_in_favorites": "ℹ️ Bu jamoa sevimlilar ro‘yxatida yo‘q.",
         "remove_team_hint": "Olib tashlash uchun jamoani bosing:",
@@ -57,7 +58,6 @@ TEXTS = {
         "team_already_added": "ℹ️ Эта команда уже добавлена.",
         "team_limit": "⚠️ Достигнут лимит избранных команд: {limit}.",
         "no_teams_found": "❌ Команда не найдена. Попробуйте другое название.",
-        "coming_soon": "🚧 Этот раздел скоро будет доступен.",
         "team_removed": "🗑 Команда удалена из избранного.",
         "team_not_in_favorites": "ℹ️ Этой команды нет в избранном.",
         "remove_team_hint": "Нажмите на команду, чтобы удалить её:",
@@ -93,7 +93,6 @@ TEXTS = {
         "team_already_added": "ℹ️ This team is already added.",
         "team_limit": "⚠️ You can add a maximum of {limit} favorite teams.",
         "no_teams_found": "❌ Team not found. Try another name.",
-        "coming_soon": "🚧 This section is coming soon.",
         "team_removed": "🗑 Team removed from your favorites.",
         "team_not_in_favorites": "ℹ️ This team is not in your favorites.",
         "remove_team_hint": "Tap a team to remove it:",
@@ -107,6 +106,12 @@ TEXTS = {
         "invalid_action": "⚠️ Invalid action.",
     },
 }
+
+
+# Football feature texts live in their own module; merge them in so the
+# whole table stays one lookup (and one parity test).
+for _language, _texts in FOOTBALL_TEXTS.items():
+    TEXTS[_language].update(_texts)
 
 
 SUPPORTED_LANGUAGES = ("uz", "ru", "en")

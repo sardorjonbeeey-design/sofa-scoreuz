@@ -51,3 +51,19 @@ def make_message(text: str | None, user_id: int = 42):
 
 def make_team(team_id: int, name: str, **kwargs) -> Team:
     return Team(id=team_id, name=name, **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def detach_handler_routers():
+    """Let every test build its own real Dispatcher.
+
+    The handler routers are module-level singletons and aiogram allows a
+    router to belong to ONE dispatcher. The application builds exactly
+    one dispatcher per process, so only tests need this reset.
+    """
+    from app.bot.handlers import football, menu, start, teams
+
+    for module in (start, menu, teams, football):
+        module.router._parent_router = None
+
+    yield
