@@ -103,8 +103,8 @@ async def news_handler(
             title = escape(item.title)
             url = escape(item.url, quote=True)
             source = f" <i>— {escape(item.source)}</i>" if item.source else ""
-            lines.append(f'<escape>{index}.</escape> <a href="{url}">{title}</a>{source}')
-        body = "\\n\\n".join(lines)
+            lines.append(f'{index}. <a href="{url}">{title}</a>{source}')
+        body = "\n\n".join(lines)
     else:
         body = text("news_unavailable", language)
 
