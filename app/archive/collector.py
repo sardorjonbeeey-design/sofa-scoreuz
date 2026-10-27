@@ -123,8 +123,8 @@ class ArchiveCollector:
                 score = f"{fixture.home_goals}–{fixture.away_goals}"
             minute = f" ({fixture.elapsed}') " if fixture.elapsed is not None else " "
             message = (
-                f"⚽ <b>{fixture.competition}</b>\n"
-                f"{fixture.home_team.name} {score} {fixture.away_team.name}\n"
+                f"⚽ <b>{escape(fixture.competition)}</b>\n"
+                f"{escape(fixture.home_team.name)} {score} {escape(fixture.away_team.name)}\n"
                 f"<b>{fixture.status}</b>{minute}"
             )
             try:
