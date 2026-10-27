@@ -112,7 +112,6 @@ class ArchiveCollector:
             old = previous.payload if previous else None
             if old is not None and (
                 old.get("status") == payload.get("status")
-                and old.get("elapsed") == payload.get("elapsed")
                 and old.get("home_goals") == payload.get("home_goals")
                 and old.get("away_goals") == payload.get("away_goals")
             ):
