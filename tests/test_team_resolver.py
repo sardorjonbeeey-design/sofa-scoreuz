@@ -201,8 +201,7 @@ async def test_alias_ranks_target_first():
 async def test_duplicate_upstream_searches_are_not_sent():
     provider = FakeProvider({"barcelona": [BARCA]})
 
-    # "barcelona" matches the alias list AND the "bar..." shortcut,
-    # but must still be searched only once.
+    # An exact team name should be searched once without broad prefix shortcuts.
     await TeamResolver(provider).resolve("Barcelona")
 
     assert provider.queries == ["Barcelona"]
