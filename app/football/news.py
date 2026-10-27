@@ -18,10 +18,14 @@ NEWS_CACHE_TTL = 15 * 60
 NEWS_LIMIT = 6
 
 _GLOBAL_QUERY = (
-    '("Premier League" OR "La Liga" OR "Serie A" OR Bundesliga OR '
-    '"Ligue 1" OR "UEFA Champions League" OR "Europa League" OR '
-    '"Süper Lig" OR "Saudi Pro League" OR Uzbekistan OR '
-    '"Russian Premier League") football'
+    '("Premier League" OR "FA Cup" OR "EFL Cup" OR "La Liga" OR '
+    '"Copa del Rey" OR "Serie A" OR "Coppa Italia" OR Bundesliga OR '
+    '"DFB-Pokal" OR "Ligue 1" OR "Coupe de France" OR '
+    '"UEFA Champions League" OR "Europa League" OR "Conference League" OR '
+    '"World Cup" OR "European Championship" OR "Nations League" OR '
+    '"Süper Lig" OR "Turkish Cup" OR "Saudi Pro League" OR '
+    '"King Cup" OR "Russian Premier League" OR "Russian Cup" OR '
+    '"Uzbekistan Super League" OR Uzbekistan football) football'
 )
 
 
