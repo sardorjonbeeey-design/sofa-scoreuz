@@ -46,7 +46,7 @@ async def test_gemini_foundation_skips_fresh_profiles(tmp_path, monkeypatch):
 
 
 def test_extract_json_accepts_fenced_json():
-    result = foundation._extract_json('\\`\\`\\`json\n{"profiles": []}\n\\`\\`\\`')
+    result = foundation._extract_json("""```json\n{"profiles": []}\n```""")
     assert result == {"profiles": []}
 
 
