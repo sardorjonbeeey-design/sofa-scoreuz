@@ -68,8 +68,8 @@ class PreferenceStore(Protocol):
         team_id: int,
         team_name: str,
         limit: int,
+        team_type: str | None = None,
     ) -> AddFavoriteResult: ...
-
     async def remove_favorite(
         self,
         telegram_id: int,
@@ -114,19 +114,24 @@ class MemoryPreferenceStore:
         team_id: int,
         team_name: str,
         limit: int,
+        team_type: str | None = None,
     ) -> AddFavoriteResult:
         favorites = self._favorites.setdefault(telegram_id, [])
 
         if any(item.team_id == team_id for item in favorites):
             return AddFavoriteResult.DUPLICATE
 
-        if len(favorites) >= limit:
+        if team_type is not None:
+            if any(item.team_type == team_type for item in favorites):
+                return AddFavoriteResult.LIMIT_REACHED
+        elif len(favorites) >= limit:
             return AddFavoriteResult.LIMIT_REACHED
 
         favorites.append(
             FavoriteTeamRecord(
                 team_id=team_id,
                 team_name=team_name[:TEAM_NAME_MAX_LENGTH],
+                team_type=team_type or "club",
             )
         )
 
@@ -230,6 +235,7 @@ class SqlPreferenceStore:
                 FavoriteTeamRecord(
                     team_id=row.team_id,
                     team_name=row.team_name,
+                    team_type=row.team_type,
                 )
                 for row in rows
             ]
@@ -240,6 +246,7 @@ class SqlPreferenceStore:
         team_id: int,
         team_name: str,
         limit: int,
+        team_type: str | None = None,
     ) -> AddFavoriteResult:
         async with self._lock_for(telegram_id):
             async with self._session("add_favorite") as session:
