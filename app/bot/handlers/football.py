@@ -424,9 +424,14 @@ async def league_table(
         # search evidence without making another provider request.
         fallback = await service.tinyfish_standings_search(league_id)
         if fallback is not None:
+            table = fallback.get("table")
+            if isinstance(table, dict) and table.get("verified_structure") and isinstance(table.get("rows"), list):
+                fallback_text = _format_tinyfish_standings_table(fallback, language)
+            else:
+                fallback_text = _format_tinyfish_standings_search(fallback, language)
             await edit_or_answer(
                 callback,
-                _format_tinyfish_standings_search(fallback, language),
+                fallback_text,
                 _markup(
                     [_button(text("refresh", language), league_callback(league_id))],
                     _back_row(language, "menu:standings"),
@@ -467,6 +472,52 @@ async def league_table(
         ),
     )
     await callback.answer()
+
+
+def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
+    """Render parsed, source-linked standings rows without API-Football."""
+    table = payload.get("table") or {}
+    league = html.escape(str(payload.get("league_name") or table.get("league_name") or "League"))
+    retrieved = html.escape(str(table.get("retrieved_at") or payload.get("queried_at") or "unknown"))
+    if language == "uz":
+        lines = [f"⚽ <b>{league} — turnir jadvali</b>", f"Yangilangan: {retrieved}"]
+        labels = ("O‘", "O‘", "D", "M", "TF", "O", "Ochko")
+    elif language == "ru":
+        lines = [f"⚽ <b>{league} — таблица</b>", f"Обновлено: {retrieved}"]
+        labels = ("И", "В", "Н", "П", "РМ", "О", "Очки")
+    else:
+        lines = [f"⚽ <b>{league} — standings</b>", f"Retrieved: {retrieved}"]
+        labels = ("P", "W", "D", "L", "GD", "Pts", "Points")
+
+    rows = table.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return _format_tinyfish_standings_search(payload, language)
+
+    lines.append("")
+    for row in rows[:30]:
+        if not isinstance(row, dict):
+            continue
+        pos = row.get("position", "—")
+        team = html.escape(str(row.get("team") or "Unknown"))
+        played = row.get("played", "—")
+        won = row.get("won", "—")
+        drawn = row.get("drawn", "—")
+        lost = row.get("lost", "—")
+        gd = row.get("goal_difference", "—")
+        if isinstance(gd, int) and gd > 0:
+            gd = f"+{gd}"
+        points = row.get("points", "—")
+        lines.append(
+            f"<b>{html.escape(str(pos))}.</b> {team} — {played} "
+            f"({won}-{drawn}-{lost}), GD {gd}, <b>{points} pts</b>"
+        )
+
+    source_url = table.get("source_url")
+    source_title = html.escape(str(table.get("source_title") or "Source"))
+    if isinstance(source_url, str) and source_url.startswith("https://"):
+        lines.extend(["", f'Source: <a href="{html.escape(source_url, quote=True)}">{source_title}</a>'])
+    lines.append("Data extracted from a published standings table; check the source for official updates.")
+    return "\\n".join(lines)[:3900]
 
 
 def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
