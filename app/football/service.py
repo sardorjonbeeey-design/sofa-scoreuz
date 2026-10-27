@@ -115,9 +115,7 @@ class FootballService:
 
     async def live_fixtures(self) -> Snapshot[tuple[Fixture, ...]]:
         async def load():
-            fixtures = tuple(await self.provider.get_live_fixtures())
-            await self._archive_fixtures(fixtures)
-            return fixtures
+            return tuple(await self.provider.get_live_fixtures())
 
         return await self.cache.get(
             "fixtures:live",
@@ -159,18 +157,21 @@ class FootballService:
                 league.current_season,
             )
             if self.archive is not None:
-                await self.archive.upsert(
-                    kind="tournament_table",
-                    record_key=f"{league_id}:{league.current_season}",
-                    payload={
-                        "league_id": league_id,
-                        "league_name": league.name,
-                        "country": league.country,
-                        "season": league.current_season,
-                        "groups": _json_value(groups),
-                    },
-                    source="api-football",
-                )
+                try:
+                    await self.archive.upsert(
+                        kind="tournament_table",
+                        record_key=f"{league_id}:{league.current_season}",
+                        payload={
+                            "league_id": league_id,
+                            "league_name": league.name,
+                            "country": league.country,
+                            "season": league.current_season,
+                            "groups": _json_value(groups),
+                        },
+                        source="api-football",
+                    )
+                except Exception:
+                    logger.exception("Could not archive standings for league %s.", league_id)
 
             return LeagueStandings(
                 league,
@@ -237,12 +238,15 @@ class FootballService:
                 raise ProviderUnavailableError("Squad data is unsupported.")
             players = tuple(await getter(team_id))
             if self.archive is not None:
-                await self.archive.upsert(
-                    kind="club_squad",
-                    record_key=str(team_id),
-                    payload={"team_id": team_id, "players": _json_value(players)},
-                    source="api-football",
-                )
+                try:
+                    await self.archive.upsert(
+                        kind="club_squad",
+                        record_key=str(team_id),
+                        payload={"team_id": team_id, "players": _json_value(players)},
+                        source="api-football",
+                    )
+                except Exception:
+                    logger.exception("Could not archive squad for team %s.", team_id)
             return players
 
         return await self.cache.get(
@@ -278,8 +282,38 @@ class FootballService:
         for fixture in fixtures:
             try:
                 await self.archive.archive_fixture(fixture)
+                for team in (fixture.home_team, fixture.away_team):
+                    try:
+                        await self.archive.upsert(
+                            kind="club_profile",
+                            record_key=str(team.id),
+                            payload={
+                                "team_id": team.id,
+                                "official_name": team.name,
+                                "country": team.country,
+                                "country_flag": _country_flag(team.country),
+                                "stadium": team.venue_name,
+                                "stadium_capacity": team.venue_capacity,
+                                "market_value": None,
+                                "market_value_updated_at": None,
+                            },
+                            source="api-football",
+                        )
+                    except Exception:
+                        logger.exception("Could not archive club profile %s.", team.id)
             except Exception:
                 logger.exception("Could not archive fixture %s.", getattr(fixture, "id", "?"))
+
+
+def _country_flag(country: str | None) -> str | None:
+    flags = {
+        "Spain": "🇪🇸", "England": "🏴", "Italy": "🇮🇹", "Germany": "🇩🇪",
+        "France": "🇫🇷", "Saudi Arabia": "🇸🇦", "Saudi-Arabia": "🇸🇦",
+        "Uzbekistan": "🇺🇿", "Türkiye": "🇹🇷", "Turkey": "🇹🇷",
+        "Netherlands": "🇳🇱", "Portugal": "🇵🇹", "Brazil": "🇧🇷",
+        "Argentina": "🇦🇷", "United States": "🇺🇸", "USA": "🇺🇸",
+    }
+    return flags.get(country or "")
 
 
 def _json_value(value):
