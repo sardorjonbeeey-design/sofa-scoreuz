@@ -27,7 +27,7 @@ class Settings:
     fixtures_cache_ttl: int = 300
     supporter_bot_token: str = ""
     archive_channel_id: int | None = None
-    gemini_api_key: str = ""
+    tinyfish_api_key: str = ""
     archive_foundation_interval_seconds: int = 86400
 
 
@@ -106,7 +106,7 @@ def get_settings() -> Settings:
         ),
         supporter_bot_token=os.getenv("SUPPORTER_BOT_TOKEN", "").strip(),
         archive_channel_id=_optional_int_env("ARCHIVE_CHANNEL_ID"),
-        gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
+        tinyfish_api_key=os.getenv("TINYFISH_API_KEY", "").strip(),
         archive_foundation_interval_seconds=_positive_int_env(
             "ARCHIVE_FOUNDATION_INTERVAL_SECONDS", 86400
         ),
