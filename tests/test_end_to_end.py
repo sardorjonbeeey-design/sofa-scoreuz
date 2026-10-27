@@ -19,6 +19,7 @@ from app.storage.store import MemoryPreferenceStore
 from tests.conftest import make_settings
 from tests.test_api_football import SECRET_KEY
 from tests.test_api_football_features import fixture_item, standing
+from tests.fakes import FakeArchive, standings_archive_payload
 from tests.test_dispatch_integration import RecordingSession, callback_update
 
 
@@ -101,7 +102,8 @@ def app(api):
     provider = CachingFootballProvider(
         ApiFootballProvider(SECRET_KEY, client=client, retry_delay=0)
     )
-    service = FootballService(provider, timezone="Asia/Tashkent")
+    archive = FakeArchive({39: standings_archive_payload(39, "Premier League")})
+    service = FootballService(provider, timezone="Asia/Tashkent", archive=archive)
     session = RecordingSession()
     bot = Bot("123456:TEST-TOKEN", session=session)
     dispatcher = create_dispatcher(
@@ -143,16 +145,16 @@ async def test_todays_matches_use_tashkent_time_and_date_parameters(app, api):
     assert params["timezone"] == "Asia/Tashkent" and "date" in params
 
 
-async def test_standings_cost_two_requests_then_none_for_everyone(app, api):
+async def test_standings_use_the_archive_without_api_football_requests(app, api):
     (edit,) = await app.press("lg:39")
     assert "Arsenal" in edit.text and "Season 2026" in edit.text
 
     for update_id in range(2, 12):
         await app.press("lg:39", update_id)
 
-    # one league lookup (season) + one standings request, ever.
-    assert api.count("/leagues") == 1
-    assert api.count("/standings") == 1
+    # The standings screen is archive-only; no API-Football calls are made.
+    assert api.count("/leagues") == 0
+    assert api.count("/standings") == 0
 
 
 async def test_a_team_page_after_restart_costs_one_team_and_one_fixture_request(app, api):
