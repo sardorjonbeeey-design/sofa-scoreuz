@@ -3,7 +3,7 @@ import asyncio
 import ipaddress
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
 
@@ -175,17 +175,28 @@ class TinyFishStandingsCollector:
 
     async def collect_standings(self) -> None:
         pending = []
+        previous_payloads: dict[int, dict[str, Any]] = {}
+        now = datetime.now(timezone.utc)
         for league in FEATURED_LEAGUES:
             try:
                 existing = await self.archive.get(
                     kind="tinyfish_standings", record_key=str(league.id),
-                    max_age_seconds=STANDINGS_MAX_AGE_SECONDS,
                 )
             except Exception:
                 logger.exception("Could not inspect standings cache for %s.", league.name)
                 continue
-            if existing is None:
-                pending.append(league)
+            if existing is not None:
+                previous = existing.payload if isinstance(existing.payload, dict) else {}
+                previous_payloads[league.id] = previous
+                fetched_at = existing.fetched_at
+                if fetched_at.tzinfo is None:
+                    fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+                fresh = now - fetched_at <= timedelta(seconds=STANDINGS_MAX_AGE_SECONDS)
+                # Re-process older snippet-only records once after this parser upgrade,
+                # but don't repeat the same failed extraction every scheduler tick.
+                if fresh and previous.get("parser_version") == 2:
+                    continue
+            pending.append(league)
 
         if not pending:
             logger.info("TinyFish league standings cache is fresh; no searches needed.")
@@ -197,15 +208,23 @@ class TinyFishStandingsCollector:
             try:
                 payload = await self._collect_one(league.id, league.name)
                 if payload is not None:
+                    previous = previous_payloads.get(league.id, {})
+                    # Never replace a previously extracted table with search snippets
+                    # just because a source is temporarily unavailable.
+                    if not payload.get("table") and isinstance(previous.get("table"), dict):
+                        payload["table"] = previous["table"]
+                        payload["data_type"] = "structured_standings"
+                        payload["last_table_refresh_failed_at"] = payload.get("queried_at")
                     await self.archive.upsert(
                         kind="tinyfish_standings", record_key=str(league.id),
                         payload=payload, source="tinyfish-search+html-table",
                     )
                     succeeded += 1
+                    table = payload.get("table") if isinstance(payload.get("table"), dict) else {}
                     logger.info(
                         "Archived TinyFish standings for %s: %s rows from %s.",
-                        league.name, len(payload.get("table", {}).get("rows", [])),
-                        payload.get("table", {}).get("source_url", "search evidence"),
+                        league.name, len(table.get("rows", [])),
+                        table.get("source_url", "search evidence"),
                     )
                 else:
                     logger.warning("No valid structured standings table found for %s.", league.name)
@@ -275,6 +294,7 @@ class TinyFishStandingsCollector:
             "league_id": league_id,
             "league_name": league_name,
             "queried_at": now,
+            "parser_version": 2,
             "results": results,
             "table": table,
             "data_type": "structured_standings" if table else "web_search_evidence_not_verified_table",
