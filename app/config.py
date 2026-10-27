@@ -25,6 +25,10 @@ class Settings:
     # users before the provider is asked again.
     live_cache_ttl: int = 60
     fixtures_cache_ttl: int = 300
+    supporter_bot_token: str = ""
+    archive_channel_id: int | None = None
+    archive_live_interval_seconds: int = 1800
+    archive_fixtures_interval_seconds: int = 1800
 
 
 def _int_env(name: str, default: int) -> int:
@@ -68,6 +72,17 @@ def _bool_env(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _optional_int_env(name: str) -> int | None:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("Environment variable %s is not a valid integer; archive publishing is disabled.", name)
+        return None
+
+
 def get_settings() -> Settings:
     # Empty values (for example "DATABASE_URL=" copied from
     # .env.example) are treated the same as "not set".
@@ -88,5 +103,13 @@ def get_settings() -> Settings:
         live_cache_ttl=_positive_int_env("LIVE_CACHE_TTL_SECONDS", 60),
         fixtures_cache_ttl=_positive_int_env(
             "FIXTURES_CACHE_TTL_SECONDS", 300
+        ),
+        supporter_bot_token=os.getenv("SUPPORTER_BOT_TOKEN", "").strip(),
+        archive_channel_id=_optional_int_env("ARCHIVE_CHANNEL_ID"),
+        archive_live_interval_seconds=_positive_int_env(
+            "ARCHIVE_LIVE_INTERVAL_SECONDS", 1800
+        ),
+        archive_fixtures_interval_seconds=_positive_int_env(
+            "ARCHIVE_FIXTURES_INTERVAL_SECONDS", 1800
         ),
     )

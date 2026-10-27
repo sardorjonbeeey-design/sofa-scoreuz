@@ -6,6 +6,8 @@ from contextlib import AsyncExitStack
 from aiohttp import web
 
 from app.bot.bot import create_bot, create_dispatcher
+from app.archive.archive_service import ArchiveService
+from app.archive.collector import ArchiveCollector
 from app.cache.cache import MemoryCache
 from app.config import Settings, get_settings
 from app.football.api_football import ApiFootballProvider
@@ -86,6 +88,7 @@ async def run_application(
 
         resolver = None
         service = None
+        provider = None
 
         if settings.api_football_key:
             provider = CachingFootballProvider(
@@ -119,8 +122,47 @@ async def run_application(
             service=service,
         )
 
-        scheduler = create_scheduler(settings)
+        archive_collector = None
+        supporter_bot = None
+        archive_database = getattr(store, "database", None)
+        if settings.supporter_bot_token and settings.archive_channel_id is not None:
+            if provider is None or archive_database is None:
+                logger.warning(
+                    "Supporter Bot archive is configured, but requires API_FOOTBALL_KEY "
+                    "and a persistent DATABASE_URL. Archive automation is disabled."
+                )
+            else:
+                supporter_bot = create_bot(settings.supporter_bot_token)
+                stack.push_async_callback(supporter_bot.session.close)
+                archive_collector = ArchiveCollector(
+                    provider=provider,
+                    archive=ArchiveService(archive_database),
+                    telegram=supporter_bot,
+                    channel_id=settings.archive_channel_id,
+                    timezone=settings.display_timezone,
+                )
+        elif settings.supporter_bot_token or settings.archive_channel_id is not None:
+            logger.warning(
+                "Supporter Bot archive is only partially configured. Set both "
+                "SUPPORTER_BOT_TOKEN and ARCHIVE_CHANNEL_ID to enable it."
+            )
+
+        scheduler = create_scheduler(settings, archive_collector)
         scheduler.start()
+        if archive_collector is not None:
+            async def run_initial_archive_jobs() -> None:
+                jobs = (
+                    archive_collector.collect_fixtures,
+                    archive_collector.collect_live,
+                )
+                for job in jobs:
+                    try:
+                        await job()
+                    except Exception:
+                        logger.exception("Initial supporter archive collection failed.")
+
+            initial_archive_task = asyncio.create_task(run_initial_archive_jobs())
+            stack.callback(initial_archive_task.cancel)
         stack.callback(
             lambda: scheduler.shutdown(wait=False)
             if scheduler.running

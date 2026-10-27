@@ -36,7 +36,7 @@ async def test_creates_tables_and_records_the_version(engine):
     applied = await run_migrations(engine)
 
     assert applied == [m.version for m in MIGRATIONS]
-    assert {"users", "favorite_teams", "schema_migrations"} <= (
+    assert {"users", "favorite_teams", "archive_records", "schema_migrations"} <= (
         await table_names(engine)
     )
 
@@ -90,7 +90,7 @@ async def test_database_created_before_versioning_is_adopted(engine):
             )
         )
 
-    assert await run_migrations(engine) == [1, 2]
+    assert await run_migrations(engine) == [1, 2, 3]
 
     async with engine.connect() as connection:
         count = (
@@ -123,6 +123,7 @@ async def postgres_engine():
         async with engine.begin() as connection:
             for name in (
                 "half_done",
+                "archive_records",
                 "favorite_teams",
                 "users",
                 "schema_migrations",

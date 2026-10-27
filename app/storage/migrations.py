@@ -1,21 +1,18 @@
 """Versioned, non-destructive schema migrations.
 
-Applied migrations are recorded in the ``schema_migrations`` table, so
-every migration runs exactly once per database. Nothing here ever drops
-tables or data.
+Applied migrations are recorded in the schema_migrations table, so every
+migration runs exactly once per database. Nothing here ever drops tables
+or data.
 
 To change the schema later:
 
-1. Change the model in ``app/storage/models.py``.
-2. Append a new ``Migration`` with the next version number to
-   ``MIGRATIONS`` that performs the matching ``ALTER``/``CREATE``.
+1. Change the model in app/storage/models.py.
+2. Append a new Migration with the next version number.
 3. Never edit or reorder a migration that has already been released.
 
 On PostgreSQL a transaction-scoped advisory lock serialises concurrent
-runs (for example two instances overlapping during a deploy). Because
-PostgreSQL DDL is transactional and the whole run is one transaction, a
-failing migration leaves nothing half-applied. SQLite (local development
-and tests only) auto-commits DDL, so it does not give that guarantee.
+runs. SQLite (local development and tests only) auto-commits DDL, so it
+does not give the same transaction guarantees.
 """
 
 import logging
@@ -82,6 +79,15 @@ def _add_favorite_team_type(connection: Connection) -> None:
         )
 
 
+def _create_archive_records(connection: Connection) -> None:
+    # Safe for fresh databases and databases where migration 1 already
+    # created all current metadata tables.
+    Base.metadata.tables["archive_records"].create(
+        connection,
+        checkfirst=True,
+    )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         version=1,
@@ -92,6 +98,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         version=2,
         name="add favorite team slot type",
         apply=_add_favorite_team_type,
+    ),
+    Migration(
+        version=3,
+        name="create persistent football archive",
+        apply=_create_archive_records,
     ),
 )
 
