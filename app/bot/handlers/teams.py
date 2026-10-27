@@ -83,49 +83,49 @@ def my_teams_keyboard(
     favorites: list[FavoriteTeamRecord] | None = None,
 ):
     rows: list[list[InlineKeyboardButton]] = []
+    saved = favorites or []
 
-    for favorite in favorites or []:
+    for favorite in saved:
         name = favorite.team_name
 
         if len(name) > REMOVE_BUTTON_NAME_LIMIT:
             name = name[: REMOVE_BUTTON_NAME_LIMIT - 1] + "…"
 
+        slot_label = text(
+            "national_team_slot" if favorite.team_type == "national" else "club_slot",
+            language,
+        )
         rows.append(
             [
-                # Opens the team page (info and fixtures).
                 InlineKeyboardButton(
-                    text=f"⚽ {name}",
-                    callback_data=team_callback(
-                        ACTION_VIEW_TEAM,
-                        favorite.team_id,
-                    ),
+                    text=f"{slot_label}: {name}",
+                    callback_data=team_callback(ACTION_VIEW_TEAM, favorite.team_id),
                 ),
                 InlineKeyboardButton(
                     text="❌",
-                    callback_data=team_callback(
-                        ACTION_REMOVE_TEAM,
-                        favorite.team_id,
-                    ),
+                    callback_data=team_callback(ACTION_REMOVE_TEAM, favorite.team_id),
                 ),
             ]
         )
 
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=text("add_team", language),
-                callback_data="team:search",
-            )
-        ]
-    )
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text=text("back", language),
-                callback_data="menu:main",
-            )
-        ]
-    )
+    if not any(item.team_type == "club" for item in saved):
+        rows.append([InlineKeyboardButton(
+            text=text("add_club", language),
+            callback_data="team:search:club",
+        )])
+
+    if not any(item.team_type == "national" for item in saved):
+        rows.append([InlineKeyboardButton(
+            text=text("add_national_team", language),
+            callback_data="team:search:national",
+        )])
+
+    rows.append([
+        InlineKeyboardButton(
+            text=text("back", language),
+            callback_data="menu:main",
+        )
+    ])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -158,8 +158,11 @@ def favorites_message(
             "\n".join(
                 # Team names come from an external API: escape them,
                 # because the bot sends messages as HTML.
-                f"{index}. ⚽ {escape(team.team_name)}"
-                for index, team in enumerate(favorites, start=1)
+                (
+                    f"{text('national_team_slot' if team.team_type == 'national' else 'club_slot', language)}: "
+                    f"{escape(team.team_name)}"
+                )
+                for team in favorites
             )
         )
         parts.append(text("remove_team_hint", language))
@@ -211,7 +214,7 @@ async def show_my_teams(
     await callback.answer()
 
 
-@router.callback_query(F.data == "team:search")
+@router.callback_query(F.data.in_({"team:search", "team:search:club", "team:search:national"}))
 async def start_team_search(
     callback: CallbackQuery,
     state: FSMContext,
@@ -225,9 +228,9 @@ async def start_team_search(
         callback.from_user.id,
     )
 
-    await state.set_state(
-        TeamSearchState.waiting_for_name
-    )
+    team_type = "national" if callback.data == "team:search:national" else "club"
+    await state.set_state(TeamSearchState.waiting_for_name)
+    await state.update_data(team_type=team_type)
 
     # A way out, so the prompt is never a dead end.
     await edit_or_answer(
@@ -256,6 +259,8 @@ async def search_team(
     )
 
     query = " ".join((message.text or "").split())
+    state_data = await state.get_data()
+    requested_type = state_data.get("team_type", "club")
 
     if not query:
         await message.answer(
@@ -301,25 +306,22 @@ async def search_team(
         )
         return
 
-    if not result.teams:
-        await message.answer(
-            text("no_teams_found", language)
-        )
-        await state.set_state(
-            TeamSearchState.waiting_for_name
-        )
+    matching_teams = [
+        team for team in result.teams
+        if team.national == (requested_type == "national")
+    ]
+
+    if not matching_teams:
+        await message.answer(text("no_teams_found", language))
+        await state.set_state(TeamSearchState.waiting_for_name)
         return
 
-    # Buttons carry only team ids; remember the teams so the
-    # selection can be resolved (and validated) when pressed.
-    await directory.remember(result.teams)
+    # Only results of the selected slot type can be added.
+    await directory.remember(matching_teams)
 
     await message.answer(
         text("team_search_results", language),
-        reply_markup=teams_keyboard(
-            result.teams,
-            language,
-        ),
+        reply_markup=teams_keyboard(matching_teams, language),
     )
 
     # Only leave the search state: language and favorites live in
@@ -513,11 +515,13 @@ async def add_team(
     limit = settings.free_favorite_slots
 
     try:
+        team_type = "national" if team.national else "club"
         outcome = await store.add_favorite(
             callback.from_user.id,
             team.id,
             team.name,
             limit,
+            team_type=team_type,
         )
     except StorageError:
         await callback.answer(
@@ -534,10 +538,8 @@ async def add_team(
         return
 
     if outcome is AddFavoriteResult.LIMIT_REACHED:
-        await callback.answer(
-            text("team_limit", language, limit=limit),
-            show_alert=True,
-        )
+        key = "national_slot_full" if team.national else "club_slot_full"
+        await callback.answer(text(key, language), show_alert=True)
         return
 
     try:
