@@ -136,6 +136,8 @@ async def test_publish_digest_reports_telegram_failure():
     result = await collector._publish_digest({
         "key": "test-club", "entity_type": "club", "name": "Test Club",
         "overview": "A saved profile.", "sources": [],
+        "country": "Spain", "stadium": "Example Stadium",
+        "stadium_capacity": 50000,
     })
     assert result is False
 
