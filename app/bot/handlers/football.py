@@ -449,6 +449,94 @@ async def league_table(
     await callback.answer()
     return
 
+
+def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
+    """Render only extracted table rows and identify their source and timestamp."""
+    league = html.escape(str(payload.get("league_name") or "League"))
+    table = payload.get("table")
+    if not isinstance(table, dict):
+        return _format_tinyfish_standings_search(payload, language)
+    rows = table.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return _format_tinyfish_standings_search(payload, language)
+
+    retrieved = html.escape(str(table.get("retrieved_at") or payload.get("queried_at") or "unknown"))
+    if language == "uz":
+        lines = [f"🏆 <b>{league} — turnir jadvali</b>", f"Yangilangan (UTC): {retrieved}"]
+        labels = ("O", "G", "D", "M", "TF", "TO", "TF", "Ochko")
+        footer = "Manba"
+    elif language == "ru":
+        lines = [f"🏆 <b>{league} — турнирная таблица</b>", f"Обновлено (UTC): {retrieved}"]
+        labels = ("И", "В", "Н", "П", "ЗМ", "ЗП", "РМ", "Очки")
+        footer = "Источник"
+    else:
+        lines = [f"🏆 <b>{league} — standings</b>", f"Retrieved (UTC): {retrieved}"]
+        labels = ("P", "W", "D", "L", "GF", "GA", "GD", "Pts")
+        footer = "Source"
+
+    for row in rows[:30]:
+        if not isinstance(row, dict):
+            continue
+        team = html.escape(str(row.get("team") or "Unknown")[:80])
+        pos = row.get("position", "?")
+        played = row.get("played", "?")
+        points = row.get("points", "?")
+        won, drawn, lost = row.get("won", "?"), row.get("drawn", "?"), row.get("lost", "?")
+        gd = row.get("goal_difference", "?")
+        gd_text = f"+{gd}" if isinstance(gd, int) and gd > 0 else str(gd)
+        lines.append(f"{html.escape(str(pos))}. <b>{team}</b> — {labels[0]} {html.escape(str(played))}, "
+                     f"{labels[1]} {html.escape(str(won))}, {labels[2]} {html.escape(str(drawn))}, "
+                     f"{labels[3]} {html.escape(str(lost))}, GD {html.escape(gd_text)}, "
+                     f"{labels[7]} {html.escape(str(points))}")
+
+    source_url = table.get("source_url")
+    source_title = html.escape(str(table.get("source_title") or footer)[:120])
+    if isinstance(source_url, str) and source_url.startswith("https://"):
+        lines.append(f'{footer}: <a href="{html.escape(source_url, quote=True)}">{source_title}</a>')
+    else:
+        lines.append(f"{footer}: {source_title}")
+    return "\\n".join(lines)[:3900]
+
+
+def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
+    """Render source evidence without implying it is a complete standings table."""
+    league = html.escape(str(payload.get("league_name") or "League"))
+    queried_at = html.escape(str(payload.get("queried_at") or "unknown"))
+    if language == "uz":
+        lines = [f"🔎 <b>{league} — jadval manbalari</b>",
+                 "Bu to‘liq tasdiqlangan turnir jadvali emas; TinyFish qidiruv natijalari.",
+                 f"Yangilangan (UTC): {queried_at}"]
+        empty = "Foydalanish mumkin bo‘lgan manba topilmadi."
+    elif language == "ru":
+        lines = [f"🔎 <b>{league} — источники таблицы</b>",
+                 "Это не полная подтверждённая таблица, а результаты поиска TinyFish.",
+                 f"Обновлено (UTC): {queried_at}"]
+        empty = "Подходящие источники не найдены."
+    else:
+        lines = [f"🔎 <b>{league} — standings sources</b>",
+                 "These are TinyFish search results, not a verified complete table.",
+                 f"Updated (UTC): {queried_at}"]
+        empty = "No usable source results were found."
+
+    results = payload.get("results")
+    if not isinstance(results, list) or not results:
+        lines.append(empty)
+        return "\\n".join(lines)
+    for item in results[:5]:
+        if not isinstance(item, dict):
+            continue
+        title = html.escape(str(item.get("title") or "Source")[:150])
+        url = item.get("url")
+        snippet = html.escape(str(item.get("snippet") or "")[:250])
+        if isinstance(url, str) and url.startswith("https://"):
+            lines.append(f'<a href="{html.escape(url, quote=True)}">{title}</a>')
+        else:
+            lines.append(title)
+        if snippet:
+            lines.append(snippet)
+    return "\\n".join(lines)[:3900]
+
+
 def _warn_if_unexpected_league(league_id: int, league) -> None:
     """Log when a catalog id does not return the competition we expect."""
     expected = featured_league(league_id)
