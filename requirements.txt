@@ -6,3 +6,5 @@ python-dotenv>=1.0,<2
 APScheduler>=3.10,<4
 aiohttp>=3.9,<4
 tzdata>=2024.1
+
+beautifulsoup4>=4.12,<5

@@ -22,7 +22,10 @@ from app.football.team_directory import TeamDirectory
 from app.localization.i18n import SUPPORTED_LANGUAGES, text
 from app.storage.store import MemoryPreferenceStore
 from tests.conftest import make_callback, make_settings
-from tests.fakes import UTC, FakeFootball, make_fixture, make_table
+from tests.fakes import (
+    UTC, FakeArchive, FakeFootball, make_fixture, make_table,
+    standings_archive_payload,
+)
 from tests.test_football_service import Clock, make_service
 from tests.test_handlers import BrokenStore
 
@@ -86,7 +89,13 @@ def world():
 
 @pytest.fixture
 def service(world):
-    return make_service(world)[0]
+    archive = FakeArchive({
+        39: standings_archive_payload(39, "Premier League"),
+        777: standings_archive_payload(
+            777, "Super League", ["Pakhtakor", "Nasaf", "Bunyodkor", "Navbahor", "AGMK", "Neftchi"]
+        ),
+    })
+    return make_service(world, archive=archive)[0]
 
 
 def edited(callback):
@@ -276,7 +285,7 @@ async def test_malformed_match_list_payloads_are_rejected_safely(tap, data):
         (ProviderUnavailableError("INTERNAL-down-detail-7731"), "provider_unavailable"),
     ],
 )
-@pytest.mark.parametrize("entry", ["menu:live", "menu:today", "menu:standings"])
+@pytest.mark.parametrize("entry", ["menu:live", "menu:today"])
 async def test_provider_failures_show_a_clear_message_with_a_way_out(tap, world, error, key, entry):
     world.error = error
     callback = await tap(entry if entry != "menu:standings" else "lg:39")
@@ -361,12 +370,12 @@ async def test_league_table_shows_standings(tap):
     assert "menu:standings" in buttons(callback)
 
 
-async def test_a_league_without_a_table_says_so(tap, world):
-    world.tables[39] = []
+async def test_a_league_without_an_archived_table_says_so(tap, service):
+    service.archive.records.pop(("tinyfish_standings", "39"), None)
 
     body, _ = edited(await tap("lg:39"))
 
-    assert "No table is available" in body
+    assert "TinyFish has not archived standings" in body
 
 
 async def test_uzbek_leagues_come_from_the_provider(tap):
@@ -402,11 +411,13 @@ async def test_malformed_league_payloads_are_rejected(tap, data):
     assert alert(callback) == text("invalid_action", "en")
 
 
-async def test_standings_are_cached_across_users(tap, world):
-    await tap("lg:39")
-    await tap("lg:39")
+async def test_standings_are_read_from_archive_without_api_football_calls(tap, world):
+    first = edited(await tap("lg:39"))[0]
+    second = edited(await tap("lg:39"))[0]
 
-    assert world.calls["standings"] == 1
+    assert "Arsenal" in first and "Arsenal" in second
+    assert world.calls.get("standings", 0) == 0
+    assert world.calls.get("leagues", 0) == 0
 
 
 # --- team search results -> team page ---------------------------------------------

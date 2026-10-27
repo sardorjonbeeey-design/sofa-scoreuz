@@ -26,7 +26,7 @@ from app.football.team_directory import TeamDirectory
 from app.football.team_resolver import TeamResolver
 from app.storage.store import MemoryPreferenceStore
 from tests.conftest import make_settings
-from tests.fakes import FakeFootball, make_fixture, make_table
+from tests.fakes import FakeArchive, FakeFootball, make_fixture, make_table, standings_archive_payload
 from tests.test_football_service import make_service
 
 USER = User(id=42, is_bot=False, first_name="Tester")
@@ -82,7 +82,8 @@ def app(world):
     session = RecordingSession()
     bot = Bot("123456:TEST-TOKEN", session=session,
               default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    service = make_service(world)[0]
+    archive = FakeArchive({39: standings_archive_payload(39, "Premier League")})
+    service = make_service(world, archive=archive)[0]
     store = MemoryPreferenceStore("en")
     dispatcher = create_dispatcher(
         make_settings(default_language="en"),
