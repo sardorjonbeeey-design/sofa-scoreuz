@@ -236,7 +236,7 @@ def format_team_upcoming(
     tz: tzinfo,
     matches: TeamMatches | None,
 ) -> str:
-    lines = [f"📅 <b>{escape(team.name)} — {text('team_upcoming', language)}</b>"]
+    lines = [f"📅 <b>{escape(team.name)} — {text('team_games_title', language)}</b>"]
     if matches is None:
         lines.append(text("fixtures_unavailable", language))
     elif matches.upcoming:
