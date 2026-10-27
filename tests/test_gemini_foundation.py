@@ -1,8 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-import pytest
-
 import app.archive.gemini_foundation as foundation
 from app.archive.archive_service import ArchiveService
 from app.scheduler.scheduler import create_scheduler
