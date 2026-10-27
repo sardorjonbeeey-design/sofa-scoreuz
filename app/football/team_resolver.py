@@ -95,6 +95,8 @@ FLAG_EMOJIS = {
 }
 
 
+AMBIGUOUS_SINGLE_TERMS = {"united"}
+
 FAMOUS_NAMES = {
     "Barcelona",
     "Real Madrid",
@@ -345,13 +347,15 @@ class TeamResolver:
             # "United" over obscure exact-name matches. Keep ordinary exact
             # searches dominant, and only apply this stronger prior when the
             # query is a genuinely ambiguous standalone token.
-            ambiguous_single_terms = {"united"}
-            is_ambiguous_single_term = normalized_query in ambiguous_single_terms
-            famous_bonus = (
-                600 if is_ambiguous_single_term and team.name in FAMOUS_NAMES
-                else 75 if team.name in FAMOUS_NAMES
-                else 0
+            is_ambiguous_single_term = (
+                normalized_query in AMBIGUOUS_SINGLE_TERMS
             )
+            if is_ambiguous_single_term and team.name in FAMOUS_NAMES:
+                famous_bonus = 600
+            elif team.name in FAMOUS_NAMES:
+                famous_bonus = 75
+            else:
+                famous_bonus = 0
 
             if is_ambiguous_single_term and team.name not in FAMOUS_NAMES:
                 match_score = min(match_score, 100)
