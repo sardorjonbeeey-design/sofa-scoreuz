@@ -29,6 +29,12 @@ ALIASES = {
     "barselona": ["Barcelona"],
     "barca": ["Barcelona"],
     "barça": ["Barcelona"],
+    "paxtakor": ["Pakhtakor"],
+    "пахтакор": ["Pakhtakor"],
+    "bunyodkor": ["Bunyodkor"],
+    "бунёдкор": ["Bunyodkor"],
+    "nasaf": ["Nasaf"],
+    "насаф": ["Nasaf"],
     "man u": ["Manchester United"],
     "man united": ["Manchester United"],
     "man utd": ["Manchester United"],
@@ -75,9 +81,12 @@ COUNTRY_CODES = {
 }
 
 
+ENGLAND_FLAG = "\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F"
+
+
 FLAG_EMOJIS = {
     "Uzbekistan": "🇺🇿",
-    "England": "🏴",
+    "England": ENGLAND_FLAG,
     "Spain": "🇪🇸",
     "Italy": "🇮🇹",
     "Germany": "🇩🇪",
@@ -220,22 +229,14 @@ class TeamResolver:
             if normalized_query == alias:
                 search_queries.extend(targets)
 
-        if normalized_query.startswith("man "):
-            search_queries.append("Manchester United")
-
-        if normalized_query.startswith("bar"):
-            search_queries.append("Barcelona")
-
-        if normalized_query.startswith("bayer"):
-            search_queries.extend(
-                [
-                    "Bayern Munich",
-                    "Bayer Leverkusen",
-                ]
-            )
-
-        if normalized_query.startswith("ps"):
-            search_queries.append("Paris Saint-Germain")
+        # Uzbek Latin spelling commonly uses ``x`` where the provider
+        # indexes the same name with ``kh`` (Paxtakor/Pakhtakor). Keep this
+        # fallback narrow and deterministic; never infer a different famous
+        # club from a broad prefix such as ``man``, ``bar`` or ``ps``.
+        if "x" in normalized_query:
+            variant = query.lower().replace("x", "kh")
+            if normalize(variant) != normalized_query:
+                search_queries.append(variant)
 
         # Never send the same search twice: every upstream call
         # counts against the provider quota.
@@ -333,13 +334,15 @@ class TeamResolver:
             else:
                 match_score = name_score * 100
 
-            # Explicit aliases get the strongest possible ranking.
-            for alias, targets in ALIASES.items():
-                if (
-                    normalized_query == alias
-                    and team.name in targets
-                ):
-                    match_score = 1200
+            # Explicit aliases get the strongest possible ranking. Normalize
+            # both sides so punctuation, spacing and hyphen variants compare
+            # consistently with the resolver's normal matching rules.
+            targets = {
+                normalize(target)
+                for target in ALIASES.get(normalized_query, [])
+            }
+            if normalized_query in ALIASES and normalized_name in targets:
+                match_score = 1200
 
             # National teams are highly relevant.
             national_bonus = 150 if team.national else 0
