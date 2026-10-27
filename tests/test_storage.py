@@ -79,6 +79,26 @@ async def test_add_and_list_favorites_in_insertion_order(store):
     ]
 
 
+async def test_one_club_and_one_national_team_have_separate_single_slots(store):
+    assert await store.add_favorite(
+        12, 1, "Arsenal", limit=2, team_type="club"
+    ) is AddFavoriteResult.ADDED
+    assert await store.add_favorite(
+        12, 2, "Liverpool", limit=2, team_type="club"
+    ) is AddFavoriteResult.LIMIT_REACHED
+    assert await store.add_favorite(
+        12, 3, "Uzbekistan", limit=2, team_type="national"
+    ) is AddFavoriteResult.ADDED
+    assert await store.add_favorite(
+        12, 4, "France", limit=2, team_type="national"
+    ) is AddFavoriteResult.LIMIT_REACHED
+
+    favorites = await store.list_favorites(12)
+    assert [(f.team_id, f.team_type) for f in favorites] == [
+        (1, "club"), (3, "national")
+    ]
+
+
 async def test_duplicate_add_is_idempotent(store):
     await store.add_favorite(1, 10, "Barcelona", limit=3)
 
