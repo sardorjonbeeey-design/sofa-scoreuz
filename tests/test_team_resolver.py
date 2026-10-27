@@ -72,6 +72,17 @@ async def test_multiple_candidates_are_ambiguous_and_ranked():
     assert [t.name for t in result.teams] == ["Barcelona", "Barcelona SC"]
 
 
+async def test_barcelona_from_spain_outranks_same_name_brazilian_club():
+    brazil = make_team(700, "Barcelona", country="Brazil")
+    spain = make_team(529, "Barcelona", country="Spain")
+    provider = FakeProvider({"barcelona": [brazil, spain]})
+
+    result = await TeamResolver(provider).resolve("Barcelona")
+
+    assert result.teams[0].id == 529
+    assert result.teams[0].country == "Spain"
+
+
 async def test_ordering_is_stable_across_runs():
     teams = [make_team(i, "Same Name FC", country="Spain")
              for i in (5, 3, 9, 1)]
