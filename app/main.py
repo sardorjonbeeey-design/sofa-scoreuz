@@ -139,6 +139,7 @@ async def run_application(
                     archive=ArchiveService(archive_database),
                     telegram=supporter_bot,
                     channel_id=settings.archive_channel_id,
+                    republish_cached=settings.archive_foundation_republish_cached,
                 )
                 stack.push_async_callback(foundation_collector.close)
         elif settings.supporter_bot_token or settings.archive_channel_id is not None:
