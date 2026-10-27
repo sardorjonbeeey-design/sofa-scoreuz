@@ -502,7 +502,7 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
                 continue
             raw_team = str(row.get("team") or "Unknown").strip()
             # Some sources repeat the rank in the team cell (e.g. "1 Arsenal").
-            raw_team = re.sub(r"^\\d+\\s*[.)]?\\s+", "", raw_team)
+            raw_team = re.sub(r"^\d+\s*[.)]?\s+", "", raw_team)
             code = team_codes.get(raw_team.casefold(), raw_team[:3].upper())
             position = row.get("position", index)
             points = row.get("points", "?")
@@ -552,7 +552,7 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
         lines.append(f'{footer}: <a href="{html.escape(source_url, quote=True)}">{source_title}</a>')
     else:
         lines.append(f"{footer}: {source_title}")
-    return "\\n".join(lines)[:3900
+    return "\n".join(lines)[:3900]
 
 def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
     """Render source evidence without implying it is a complete standings table."""
