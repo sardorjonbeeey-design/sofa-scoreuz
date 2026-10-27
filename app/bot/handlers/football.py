@@ -500,7 +500,7 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
         lines.append(f'{footer}: <a href="{html.escape(source_url, quote=True)}">{source_title}</a>')
     else:
         lines.append(f"{footer}: {source_title}")
-    return "\\n".join(lines)[:3900]
+    return "\n".join(lines)[:3900]
 
 
 def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
@@ -526,7 +526,7 @@ def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
     results = payload.get("results")
     if not isinstance(results, list) or not results:
         lines.append(empty)
-        return "\\n".join(lines)
+        return "\n".join(lines)
     for item in results[:5]:
         if not isinstance(item, dict):
             continue
@@ -539,7 +539,7 @@ def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
             lines.append(title)
         if snippet:
             lines.append(snippet)
-    return "\\n".join(lines)[:3900]
+    return "\n".join(lines)[:3900]
 
 
 def _warn_if_unexpected_league(league_id: int, league) -> None:
