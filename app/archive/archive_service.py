@@ -98,9 +98,23 @@ class ArchiveService:
             raise StorageError("Could not list archive records.") from exc
 
     async def archive_fixture(self, fixture) -> None:
-        from dataclasses import asdict
+        """Store a Fixture dataclass using JSON-safe primitive values."""
+        from dataclasses import asdict, is_dataclass
+        from datetime import date, datetime
+
+        def to_json_value(value):
+            if is_dataclass(value):
+                return to_json_value(asdict(value))
+            if isinstance(value, (datetime, date)):
+                return value.isoformat()
+            if isinstance(value, dict):
+                return {str(key): to_json_value(item) for key, item in value.items()}
+            if isinstance(value, (list, tuple)):
+                return [to_json_value(item) for item in value]
+            return value
+
         await self.upsert(kind="fixture", record_key=str(fixture.id),
-                          payload=asdict(fixture), source="api-football")
+                          payload=to_json_value(fixture), source="api-football")
 
     async def get_archived_fixture(self, fixture_id: int):
         record = await self.get(kind="fixture", record_key=str(fixture_id))
