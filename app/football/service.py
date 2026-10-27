@@ -142,7 +142,7 @@ class FootballService:
         )
 
     async def tinyfish_standings_search(self, league_id: int) -> dict | None:
-        """Return cached TinyFish search evidence without making a provider call."""
+        """Return the cached TinyFish standings archive without a provider call."""
         if self.archive is None:
             return None
         try:
