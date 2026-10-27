@@ -456,7 +456,11 @@ async def view_team(
 
     if team is None and saved is not None:
         # Provider unreachable, but the user saved this team earlier.
-        team = Team(id=saved.team_id, name=saved.team_name)
+        team = Team(
+            id=saved.team_id,
+            name=saved.team_name,
+            national=saved.team_type == "national",
+        )
 
     if team is None:
         await callback.answer(
