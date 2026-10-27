@@ -19,7 +19,6 @@ def create_scheduler(
             replace_existing=True,
             max_instances=1,
             coalesce=True,
-            next_run_time=None,
         )
         scheduler.add_job(
             archive_collector.collect_fixtures,
