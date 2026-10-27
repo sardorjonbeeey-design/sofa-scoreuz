@@ -481,13 +481,10 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
     retrieved = html.escape(str(table.get("retrieved_at") or payload.get("queried_at") or "unknown"))
     if language == "uz":
         lines = [f"⚽ <b>{league} — turnir jadvali</b>", f"Yangilangan: {retrieved}"]
-        labels = ("O‘", "O‘", "D", "M", "TF", "O", "Ochko")
     elif language == "ru":
         lines = [f"⚽ <b>{league} — таблица</b>", f"Обновлено: {retrieved}"]
-        labels = ("И", "В", "Н", "П", "РМ", "О", "Очки")
     else:
         lines = [f"⚽ <b>{league} — standings</b>", f"Retrieved: {retrieved}"]
-        labels = ("P", "W", "D", "L", "GD", "Pts", "Points")
 
     rows = table.get("rows")
     if not isinstance(rows, list) or not rows:
@@ -517,7 +514,7 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
     if isinstance(source_url, str) and source_url.startswith("https://"):
         lines.extend(["", f'Source: <a href="{html.escape(source_url, quote=True)}">{source_title}</a>'])
     lines.append("Data extracted from a published standings table; check the source for official updates.")
-    return "\\n".join(lines)[:3900]
+    return "\n".join(lines)[:3900]
 
 
 def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
