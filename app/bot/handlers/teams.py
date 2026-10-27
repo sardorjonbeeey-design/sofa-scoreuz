@@ -234,7 +234,12 @@ async def start_team_search(
         callback.from_user.id,
     )
 
-    team_type = "national" if callback.data == "team:search:national" else "club"
+    if callback.data == "team:search:national":
+        team_type = "national"
+    elif callback.data == "team:search:club":
+        team_type = "club"
+    else:
+        team_type = "all"
     await state.set_state(TeamSearchState.waiting_for_name)
     await state.update_data(team_type=team_type)
 
@@ -314,7 +319,8 @@ async def search_team(
 
     matching_teams = [
         team for team in result.teams
-        if team.national == (requested_type == "national")
+        if requested_type == "all"
+        or team.national == (requested_type == "national")
     ]
 
     if not matching_teams:
