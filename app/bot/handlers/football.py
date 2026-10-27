@@ -461,6 +461,7 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
         return _format_tinyfish_standings_search(payload, language)
 
     retrieved = html.escape(str(table.get("retrieved_at") or payload.get("queried_at") or "unknown"))
+    season = table.get("season")
     if language == "uz":
         lines = [f"🏆 <b>{league} — turnir jadvali</b>", f"Yangilangan (UTC): {retrieved}"]
         labels = ("O", "G", "D", "M", "TF", "TO", "TF", "Ochko")
@@ -473,6 +474,10 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
         lines = [f"🏆 <b>{league} — standings</b>", f"Retrieved (UTC): {retrieved}"]
         labels = ("P", "W", "D", "L", "GF", "GA", "GD", "Pts")
         footer = "Source"
+
+    if season is not None:
+        season_label = {"uz": "Mavsum", "ru": "Сезон"}.get(language, "Season")
+        lines.append(f"{season_label} {html.escape(str(season))}")
 
     for row in rows[:30]:
         if not isinstance(row, dict):
