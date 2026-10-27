@@ -13,7 +13,6 @@ from aiogram.types import (
 from app.bot.callbacks import (
     KIND_LIVE,
     KIND_TODAY,
-    SCOPE_ALL,
     SCOPE_TOP,
     country_callback,
     fixtures_callback,
@@ -187,8 +186,9 @@ async def _show_fixtures(
 
     favorites = await favorite_team_ids(store, callback.from_user.id)
     fixtures = snapshot.value
-    top_only = scope == SCOPE_TOP
-    shown = filter_scope(fixtures, top_only, favorites)
+    # Live and today's matches always use the same fixed competition scope.
+    # The scope value is retained only for older callback payloads.
+    shown = filter_scope(fixtures, True, favorites)
     pages = build_match_pages(
         shown,
         language=language,
@@ -206,7 +206,7 @@ async def _show_fixtures(
         )
 
     if not pages:
-        if fixtures and top_only:
+        if fixtures:
             body = text("no_top_matches", language, count=len(fixtures))
         else:
             body = text(
@@ -246,24 +246,17 @@ async def _show_fixtures(
             _button("▶️", fixtures_callback(kind, scope, page + 1))
         )
 
-    other_scope = SCOPE_ALL if top_only else SCOPE_TOP
     rows = []
 
     if navigation:
         rows.append(navigation)
 
-    rows.append(
-        [
-            _button(
-                text("scope_all" if top_only else "scope_top", language),
-                fixtures_callback(kind, other_scope, 0),
-            ),
-            _button(
-                text("refresh", language),
-                fixtures_callback(kind, scope, page),
-            ),
-        ]
-    )
+    rows.append([
+        _button(
+            text("refresh", language),
+            fixtures_callback(kind, SCOPE_TOP, page),
+        )
+    ])
     rows.append(_back_row(language))
 
     await edit_or_answer(
