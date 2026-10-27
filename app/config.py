@@ -29,6 +29,7 @@ class Settings:
     archive_channel_id: int | None = None
     archive_live_interval_seconds: int = 1800
     archive_fixtures_interval_seconds: int = 1800
+    gemini_api_key: str = ""
 
 
 def _int_env(name: str, default: int) -> int:
@@ -112,4 +113,5 @@ def get_settings() -> Settings:
         archive_fixtures_interval_seconds=_positive_int_env(
             "ARCHIVE_FIXTURES_INTERVAL_SECONDS", 1800
         ),
+        gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
     )
