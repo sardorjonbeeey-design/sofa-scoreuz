@@ -230,6 +230,27 @@ def build_match_pages(
     return pages
 
 
+def format_team_upcoming(
+    team: Team,
+    language: str,
+    tz: tzinfo,
+    matches: TeamMatches | None,
+) -> str:
+    lines = [f"📅 <b>{escape(team.name)} — {text('team_upcoming', language)}</b>"]
+    if matches is None:
+        lines.append(text("fixtures_unavailable", language))
+    elif matches.upcoming:
+        lines.extend(
+            fixture_line(
+                fixture, language, tz, with_date=True, with_competition=True
+            )
+            for fixture in matches.upcoming[:5]
+        )
+    else:
+        lines.append(text("no_upcoming", language))
+    return "\\n".join(lines)
+
+
 # --- footers -----------------------------------------------------------
 
 
