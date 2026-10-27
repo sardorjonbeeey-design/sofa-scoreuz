@@ -213,15 +213,16 @@ class GeminiFoundationCollector:
         return parsed["profiles"], _grounding_sources(candidate)
 
     async def _publish_digest(self, profiles: list[dict[str, Any]]) -> None:
-        lines = ["📚 <b>Football knowledge archive</b>"]
+        header = "📚 <b>Football knowledge archive</b>"
+        blocks: list[str] = []
         for profile in profiles:
             entity_type = "Competition" if profile["entity_type"] == "competition" else "Club / team"
-            lines.append(f"\n<b>{html.escape(profile['name'])}</b> · {entity_type}")
+            lines = [f"<b>{html.escape(profile['name'])}</b> · {entity_type}"]
             if profile.get("country"):
                 lines.append(f"Country: {html.escape(profile['country'])}")
             if profile.get("founded_or_established"):
                 lines.append(f"Founded / established: {html.escape(profile['founded_or_established'])}")
-            lines.append(html.escape(profile["overview"]))
+            lines.append(html.escape(profile["overview"][:900]))
             for fact in profile.get("facts", [])[:3]:
                 lines.append(f"• {html.escape(fact)}")
             source_list = profile.get("sources") or []
@@ -230,20 +231,32 @@ class GeminiFoundationCollector:
                     f'<a href="{html.escape(item["url"], quote=True)}">{html.escape(item["title"])}</a>'
                     for item in source_list[:2]
                 ))
-        message = "\n".join(lines)
-        # Telegram's HTML message limit is 4096 chars. A batch is kept small,
-        # but truncate safely rather than losing the whole publication.
-        if len(message) > 3900:
-            message = message[:3850] + "\n…</b>"
-        try:
-            await self.telegram.send_message(
-                chat_id=self.channel_id,
-                text=message,
-                parse_mode="HTML",
-                disable_web_page_preview=True,
-            )
-        except Exception:
-            logger.exception("Could not publish Gemini foundation digest to Telegram.")
+            blocks.append("\\n".join(lines))
+
+        # Split at profile boundaries so every Telegram HTML message stays
+        # within the limit and one long Gemini response cannot break markup.
+        messages: list[str] = []
+        current = header
+        for block in blocks:
+            candidate = current + "\\n\\n" + block
+            if len(candidate) > 3800 and current != header:
+                messages.append(current)
+                current = header + "\\n\\n" + block
+            else:
+                current = candidate
+        if current != header:
+            messages.append(current)
+
+        for message in messages:
+            try:
+                await self.telegram.send_message(
+                    chat_id=self.channel_id,
+                    text=message,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                )
+            except Exception:
+                logger.exception("Could not publish Gemini foundation digest to Telegram.")
 
 
 def _optional_text(value: Any) -> str | None:
