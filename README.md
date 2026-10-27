@@ -22,7 +22,7 @@ Matches, standings and team data come from API-Football. League, team and
 country names are shown exactly as the provider returns them (English);
 the interface around them is translated.
 
-News research/summarization and per-user time zone are not built yet. The Supporter Bot builds a foundational archive of club and competition profiles with Gemini grounded by Google Search, stores records in PostgreSQL, and publishes grouped digests to Telegram. Its scheduled archive path does not poll API-Football. Fixture/live collection is intentionally disabled in the Supporter Bot until the provider access issue is resolved and collection is explicitly re-enabled.
+News research/summarization and per-user time zone are not built yet. The Supporter Bot builds a foundational archive of club and competition profiles from TinyFish Search results, stores source-linked excerpts in PostgreSQL, and publishes them to Telegram. This collector uses no LLM and does not poll API-Football. It stores search snippets rather than generated summaries; unverified fields remain empty.
 
 ### Verification status (read this before deploying)
 
@@ -77,13 +77,13 @@ Names only. Never commit real values; `.env` is git-ignored.
 | `PORT` | no (default `10000`) | Health-check server port; hosting platforms set this themselves |
 | `SUPPORTER_BOT_TOKEN` | for archive automation | Token of the separate Supporter Bot; keep `BOT_TOKEN` for the main bot |
 | `ARCHIVE_CHANNEL_ID` | for archive automation | Numeric Telegram channel ID where the Supporter Bot can post |
-| `GEMINI_API_KEY` | for Gemini archive | Gemini API key used for grounded foundational club and competition research |
+| `TINYFISH_API_KEY` | for archive automation | TinyFish Search API key; search is free within published limits |
 | `ARCHIVE_FOUNDATION_INTERVAL_SECONDS` | no (default `86400`) | How often the Supporter Bot checks whether foundational profiles need refresh |
 | `TEST_DATABASE_URL` | tests only | Optional empty PostgreSQL database for the PostgreSQL-specific tests (see Tests) |
 
 ## Archive collection
 
-The Supporter Bot does not automatically call API-Football. It uses Gemini with Google Search grounding to build stable club and competition profiles, writes them to the shared PostgreSQL archive, and publishes only missing or stale profiles. Existing profiles are considered fresh for 90 days; the scheduler checks once per day. API-Football remains the source for live scores, fixtures, standings and other structured match data requested by the main bot, but those user-facing requests are separate from background archive collection.
+The Supporter Bot does not automatically call API-Football or Gemini. It uses TinyFish Search to retrieve source-linked web snippets for stable club and competition profiles, writes them to the shared PostgreSQL archive, and publishes only missing or stale profiles. It searches one entity at a time and pauses between requests to stay within the free search rate limit. Search snippets are not AI-verified summaries; source URLs are preserved, and unknown structured fields are left empty. Existing profiles are considered fresh for 90 days; the scheduler checks once per day. API-Football remains a separate source for structured live scores, fixtures, standings and other match data requested by the main bot.
 
 ## API usage and quota
 
@@ -189,4 +189,4 @@ API-Football is used initially. Another provider can be added by implementing
 
 Set both `SUPPORTER_BOT_TOKEN` and `ARCHIVE_CHANNEL_ID` in the existing Render service. Add the bot to the channel as an administrator with posting permission. The supporter token is separate from `BOT_TOKEN`; do not overwrite the main bot token.
 
-Archive automation requires the existing `API_FOOTBALL_KEY` and persistent `DATABASE_URL`. The collector stores today's fixtures and live match snapshots in `archive_records`, posts one daily fixture digest, and posts live match updates when score or status changes. Defaults check live matches every 30 minutes and refresh the fixture list no more often than every six hours to limit API usage; tune these intervals to your API-Football plan. It does not yet make the main bot read from the archive, collect squads/standings/news, or use Gemini. `GEMINI_API_KEY` is therefore not required yet; add it only when the separate AI-assisted news research/summarization feature is implemented.
+Archive automation requires `TINYFISH_API_KEY`, `SUPPORTER_BOT_TOKEN`, `ARCHIVE_CHANNEL_ID`, and a persistent `DATABASE_URL`. The collector stores source-linked foundation snippets for clubs and competitions in `archive_records` and publishes one profile per successful search. It does not collect fixtures or live updates, and it does not use Gemini. `API_FOOTBALL_KEY` is separate and remains the main bot's structured football-data provider.
