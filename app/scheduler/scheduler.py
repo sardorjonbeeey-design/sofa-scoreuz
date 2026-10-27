@@ -8,7 +8,7 @@ def create_scheduler(
     settings: Settings,
     archive_collector: ArchiveCollector | None = None,
 ) -> AsyncIOScheduler:
-    scheduler = AsyncIOScheduler(timezone=settings.display_timezone)
+    scheduler = AsyncIOScheduler()
 
     if archive_collector is not None:
         scheduler.add_job(
