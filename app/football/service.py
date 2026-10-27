@@ -149,7 +149,8 @@ class FootballService:
             record = await self.archive.get(
                 kind="tinyfish_standings",
                 record_key=str(league_id),
-                max_age_seconds=7 * 24 * 60 * 60,
+                # Keep the last saved table visible during provider outages. The
+                # table's own retrieved_at timestamp tells users how old it is.
             )
         except Exception:
             logger.exception("Could not read TinyFish standings fallback for league %s.", league_id)
