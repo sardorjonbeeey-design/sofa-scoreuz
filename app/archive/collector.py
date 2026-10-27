@@ -1,5 +1,6 @@
 """Scheduled collector shared by the main bot and Telegram archive channel."""
 import logging
+from html import escape
 from dataclasses import asdict, is_dataclass
 from datetime import date, datetime
 from typing import Any
@@ -74,8 +75,8 @@ class ArchiveCollector:
             for fixture in fixtures[:35]:
                 kickoff = fixture.start_time.astimezone(self._tz).strftime("%H:%M")
                 lines.append(
-                    f"• {kickoff} — {fixture.home_team.name} – {fixture.away_team.name}"
-                    f" ({fixture.competition})"
+                    f"• {kickoff} — {escape(fixture.home_team.name)} – {escape(fixture.away_team.name)}"
+                    f" ({escape(fixture.competition)})"
                 )
             if len(fixtures) > 35:
                 lines.append(f"… va yana {len(fixtures) - 35} ta uchrashuv.")
