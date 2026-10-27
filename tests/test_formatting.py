@@ -149,7 +149,7 @@ def test_a_competition_header_is_repeated_when_it_continues_on_the_next_page():
     assert all(p.startswith("<b>Premier League") for p in pages)
 
 
-def test_top_scope_keeps_featured_uzbek_and_favorite_matches_only():
+def test_match_feed_always_keeps_only_featured_competitions_and_uzbek_matches():
     fixtures = [
         make_fixture(1, league_id=39),
         make_fixture(2, league_id=555, competition="Super League", country="Uzbekistan"),
@@ -159,8 +159,8 @@ def test_top_scope_keeps_featured_uzbek_and_favorite_matches_only():
 
     top = {f.id for f in filter_scope(fixtures, True, {500})}
 
-    assert top == {1, 2, 4}
-    assert len(filter_scope(fixtures, False, {500})) == 4
+    assert top == {1, 2}
+    assert {f.id for f in filter_scope(fixtures, False, {500})} == {1, 2}
 
 
 def test_footer_reports_update_time_and_staleness():
