@@ -25,7 +25,6 @@ from app.bot.callbacks import (
 from app.bot.formatting import (
     build_match_pages,
     filter_scope,
-    format_standings,
     freshness_footer,
 )
 from app.bot.handlers.common import (
