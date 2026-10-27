@@ -165,7 +165,16 @@ class TinyFishFoundationCollector:
         )
 
     async def _research_entity(self, entity: dict[str, str]) -> dict[str, Any] | None:
-        query = f'{entity["name"]} official website history facts football'
+        if entity["kind"] == "club":
+            query = (
+                f'{entity["name"]} official full name country home stadium '
+                'seating capacity current squad market value'
+            )
+        else:
+            query = (
+                f'{entity["name"]} current season fixtures results '
+                'standings league table official'
+            )
         response = await self.client.get(
             TINYFISH_SEARCH_ENDPOINT,
             params={"query": query, "language": "en"},
