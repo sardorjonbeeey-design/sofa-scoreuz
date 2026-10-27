@@ -151,7 +151,11 @@ async def run_application(
         scheduler.start()
         if archive_collector is not None:
             async def run_initial_archive_jobs() -> None:
-                for job in (archive_collector.collect_fixtures, archive_collector.collect_live):
+                jobs = (
+                    archive_collector.collect_fixtures,
+                    archive_collector.collect_live,
+                )
+                for job in jobs:
                     try:
                         await job()
                     except Exception:
