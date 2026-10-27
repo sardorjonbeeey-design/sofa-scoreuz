@@ -108,6 +108,9 @@ async def test_republish_cached_profiles_without_search(tmp_path, monkeypatch):
         payload={
             "key": "test-club", "entity_type": "club", "name": "Test Club",
             "overview": "A saved profile.", "sources": [],
+            "country": "Spain", "country_flag": "🇪🇸",
+            "stadium": "Example Stadium", "stadium_capacity": 50000,
+            "market_value": "€500m", "market_value_updated_at": "2026-10",
         },
         source="tinyfish-search",
     )
@@ -135,3 +138,17 @@ async def test_publish_digest_reports_telegram_failure():
         "overview": "A saved profile.", "sources": [],
     })
     assert result is False
+
+
+async def test_publish_skips_raw_search_excerpts():
+    telegram = SimpleNamespace(send_message=AsyncMock())
+    collector = foundation.TinyFishFoundationCollector(
+        api_key="test-key", archive=SimpleNamespace(), telegram=telegram,
+        channel_id=-100123, client=SimpleNamespace(),
+    )
+    result = await collector._publish_digest({
+        "key": "test-club", "entity_type": "club", "name": "Test Club",
+        "overview": "Search excerpts: generic SEO text", "sources": [],
+    })
+    assert result is False
+    telegram.send_message.assert_not_awaited()
