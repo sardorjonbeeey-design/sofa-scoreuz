@@ -344,7 +344,11 @@ def format_team_page(
     tz: tzinfo,
     matches: TeamMatches | None,
 ) -> str:
-    lines = [f"<b>{escape(team.name)}</b>"]
+    kind_key = "team_kind_national" if team.national else "team_kind_club"
+    lines = [
+        f"<b>{escape(team.name)}</b>",
+        text(kind_key, language),
+    ]
 
     if team.country:
         lines.append(
