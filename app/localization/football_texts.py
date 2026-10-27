@@ -56,11 +56,14 @@ FOOTBALL_TEXTS = {
         "team_page_unavailable": (
             "Jamoa ma’lumotlarini hozir yuklab bo‘lmadi."
         ),
-        # unfinished / settings
-        "news_unavailable": (
-            "📰 <b>Yangiliklar</b>\n\n🚧 Bu bo‘lim hali tayyor emas. "
-            "Hozircha yangiliklar mavjud emas."
-        ),
+        # news, squad and settings
+        "news_title": "📰 <b>Futbol yangiliklari</b>",
+        "news_unavailable": "Yangiliklarni hozir yuklab bo‘lmadi.",
+        "no_news": "Hozircha mos yangilik topilmadi.",
+        "squad_title": "Tarkib",
+        "squad_unavailable": "Jamoa tarkibini hozir yuklab bo‘lmadi.",
+        "no_squad": "Tarkib ma’lumoti mavjud emas.",
+        "team_games_title": "Yaqin 5 ta o‘yin",
         "settings_title": "⚙️ <b>Sozlamalar</b>\n\nTilni tanlang:",
         "settings_timezone": "🕒 Vaqt zonasi: {tz}",
         # match status labels
@@ -122,10 +125,13 @@ FOOTBALL_TEXTS = {
         "team_page_unavailable": (
             "Сейчас не удалось загрузить данные команды."
         ),
-        "news_unavailable": (
-            "📰 <b>Новости</b>\n\n🚧 Этот раздел ещё не готов. "
-            "Новости пока недоступны."
-        ),
+        "news_title": "📰 <b>Футбольные новости</b>",
+        "news_unavailable": "Не удалось загрузить новости.",
+        "no_news": "Подходящих новостей пока нет.",
+        "squad_title": "Состав",
+        "squad_unavailable": "Не удалось загрузить состав команды.",
+        "no_squad": "Данные о составе недоступны.",
+        "team_games_title": "Следующие 5 матчей",
         "settings_title": "⚙️ <b>Настройки</b>\n\nВыберите язык:",
         "settings_timezone": "🕒 Часовой пояс: {tz}",
         "status_HT": "Перерыв",
@@ -183,10 +189,13 @@ FOOTBALL_TEXTS = {
         "add_to_favorites": "⭐ Add to favorites",
         "remove_from_favorites": "🗑 Remove from favorites",
         "team_page_unavailable": "Could not load the team details right now.",
-        "news_unavailable": (
-            "📰 <b>News</b>\n\n🚧 This section is not ready yet. "
-            "News is not available for now."
-        ),
+        "news_title": "📰 <b>Football news</b>",
+        "news_unavailable": "Could not load news right now.",
+        "no_news": "No relevant news found right now.",
+        "squad_title": "Squad",
+        "squad_unavailable": "Could not load this team's squad right now.",
+        "no_squad": "Squad information is not available.",
+        "team_games_title": "Next 5 games",
         "settings_title": "⚙️ <b>Settings</b>\n\nChoose your language:",
         "settings_timezone": "🕒 Time zone: {tz}",
         "status_HT": "HT",
