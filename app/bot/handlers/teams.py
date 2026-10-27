@@ -18,13 +18,19 @@ from app.bot.callbacks import (
     ACTION_VIEW_TEAM,
     is_legacy_add_callback,
     parse_team_callback,
+    parse_team_feature_callback,
     team_callback,
 )
-from app.bot.formatting import format_team_page, freshness_footer
+from app.bot.formatting import (
+    format_team_page,
+    format_team_upcoming,
+    freshness_footer,
+)
 from app.bot.handlers.common import edit_or_answer, user_language
 from app.config import Settings
 from app.football.errors import ProviderError
 from app.football.models import Team
+from app.football.news import football_news
 from app.football.service import FootballService
 from app.football.team_directory import TeamDirectory
 from app.football.team_resolver import (
@@ -381,6 +387,26 @@ def team_page_keyboard(
             [toggle],
             [
                 InlineKeyboardButton(
+                    text=text("team_squad", language),
+                    callback_data=f"team:squad:{team_id}",
+                ),
+                InlineKeyboardButton(
+                    text=text("team_news", language),
+                    callback_data=f"team:news:{team_id}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=text("team_next_games", language),
+                    callback_data=f"team:games:{team_id}",
+                ),
+                InlineKeyboardButton(
+                    text=text("team_standings", language),
+                    callback_data="menu:standings",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
                     text=text("back", language),
                     callback_data="menu:teams",
                 )
@@ -474,6 +500,156 @@ async def view_team(
         team_page_keyboard(language, team_id, saved is not None),
     )
 
+    await callback.answer()
+
+
+
+
+def _team_subpage_keyboard(language: str, team_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[
+            InlineKeyboardButton(
+                text=text("back", language),
+                callback_data=team_callback(ACTION_VIEW_TEAM, team_id),
+            )
+        ]]
+    )
+
+
+@router.callback_query(F.data.startswith("team:squad:"))
+async def team_squad_page(
+    callback: CallbackQuery,
+    store: PreferenceStore,
+    settings: Settings,
+    directory: TeamDirectory,
+    service: FootballService | None = None,
+) -> None:
+    language = await user_language(store, settings, callback.from_user.id)
+    team_id = parse_team_feature_callback(callback.data, "squad")
+    if team_id is None:
+        await callback.answer(text("invalid_action", language), show_alert=True)
+        return
+
+    team = await lookup_team(team_id, directory, service)
+    if team is None:
+        await callback.answer(text("search_expired", language), show_alert=True)
+        return
+
+    if service is None:
+        body = f"<b>{escape(team.name)} — {text('squad_title', language)}</b>\n\n{text('squad_unavailable', language)}"
+    else:
+        try:
+            snapshot = await service.team_squad(team_id)
+        except ProviderError as exc:
+            logger.warning("Squad for team %s unavailable (%s).", team_id, type(exc).__name__)
+            body = f"<b>{escape(team.name)} — {text('squad_title', language)}</b>\n\n{text('squad_unavailable', language)}"
+        else:
+            lines = [f"👥 <b>{escape(team.name)} — {text('squad_title', language)}</b>"]
+            if not snapshot.value:
+                lines.append(text("no_squad", language))
+            else:
+                for player in snapshot.value[:35]:
+                    number = f"{player.number}. " if player.number is not None else ""
+                    position = f" — {escape(player.position)}" if player.position else ""
+                    age = f" ({player.age})" if player.age is not None else ""
+                    lines.append(f"{number}{escape(player.name)}{age}{position}")
+                lines.append("")
+                lines.append(freshness_footer(
+                    snapshot.fetched_at,
+                    snapshot.stale,
+                    language=language,
+                    tz=service.tz,
+                    tz_name=service.timezone_name,
+                ))
+            body = "\n".join(lines)
+
+    await edit_or_answer(callback, body, _team_subpage_keyboard(language, team_id))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("team:news:"))
+async def team_news_page(
+    callback: CallbackQuery,
+    store: PreferenceStore,
+    settings: Settings,
+    directory: TeamDirectory,
+    service: FootballService | None = None,
+) -> None:
+    language = await user_language(store, settings, callback.from_user.id)
+    team_id = parse_team_feature_callback(callback.data, "news")
+    if team_id is None:
+        await callback.answer(text("invalid_action", language), show_alert=True)
+        return
+
+    team = await lookup_team(team_id, directory, service)
+    if team is None:
+        await callback.answer(text("search_expired", language), show_alert=True)
+        return
+
+    await callback.answer()
+    try:
+        items = await football_news(team_name=team.name, language=language, limit=5)
+    except Exception:
+        logger.exception("Could not load news for team %s.", team_id)
+        items = ()
+
+    if items:
+        label = text("team_news", language).replace("📰 ", "")
+        lines = [f"📰 <b>{escape(team.name)} — {escape(label)}</b>"]
+        for index, item in enumerate(items, start=1):
+            title = escape(item.title)
+            url = escape(item.url, quote=True)
+            source = f" <i>— {escape(item.source)}</i>" if item.source else ""
+            lines.append(f'{index}. <a href="{url}">{title}</a>{source}')
+        body = "\n\n".join(lines)
+    else:
+        body = f"<b>{escape(team.name)}</b>\n\n{text('no_news', language)}"
+
+    await edit_or_answer(callback, body, _team_subpage_keyboard(language, team_id))
+
+
+@router.callback_query(F.data.startswith("team:games:"))
+async def team_games_page(
+    callback: CallbackQuery,
+    store: PreferenceStore,
+    settings: Settings,
+    directory: TeamDirectory,
+    service: FootballService | None = None,
+) -> None:
+    language = await user_language(store, settings, callback.from_user.id)
+    team_id = parse_team_feature_callback(callback.data, "games")
+    if team_id is None:
+        await callback.answer(text("invalid_action", language), show_alert=True)
+        return
+
+    team = await lookup_team(team_id, directory, service)
+    if team is None:
+        await callback.answer(text("search_expired", language), show_alert=True)
+        return
+
+    matches = None
+    footer = ""
+    if service is not None:
+        try:
+            snapshot = await service.team_matches(team_id)
+            matches = snapshot.value
+            footer = freshness_footer(
+                snapshot.fetched_at,
+                snapshot.stale,
+                language=language,
+                tz=service.tz,
+                tz_name=service.timezone_name,
+            )
+        except ProviderError as exc:
+            logger.warning("Upcoming games for team %s unavailable (%s).", team_id, type(exc).__name__)
+
+    from datetime import timezone
+    body = format_team_upcoming(
+        team, language, service.tz if service else timezone.utc, matches
+    )
+    if footer:
+        body += "\n\n" + footer
+    await edit_or_answer(callback, body, _team_subpage_keyboard(language, team_id))
     await callback.answer()
 
 
