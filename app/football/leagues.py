@@ -36,8 +36,6 @@ FEATURED_LEAGUES: tuple[FeaturedLeague, ...] = (
     FeaturedLeague(135, "Serie A", "🇮🇹"),
     FeaturedLeague(78, "Bundesliga", "🇩🇪"),
     FeaturedLeague(61, "Ligue 1", "🇫🇷"),
-    FeaturedLeague(94, "Primeira Liga", "🇵🇹"),
-    FeaturedLeague(88, "Eredivisie", "🇳🇱"),
     FeaturedLeague(203, "Süper Lig", "🇹🇷"),
     FeaturedLeague(235, "Russian Premier League", "🇷🇺"),
     FeaturedLeague(307, "Saudi Pro League", "🇸🇦"),
@@ -59,6 +57,14 @@ FEATURED_CUP_AND_INTERNATIONAL_IDS = frozenset({
     6,    # Africa Cup of Nations
     7,    # AFC Asian Cup
     9,    # Copa América
+    13,   # Olympic football tournament
+    15,   # FIFA Club World Cup
+    29,   # World Cup qualification: Africa
+    30,   # World Cup qualification: Asia
+    31,   # World Cup qualification: CONCACAF
+    32,   # World Cup qualification: Europe
+    33,   # World Cup qualification: Oceania
+    34,   # World Cup qualification: South America
     45,   # FA Cup
     48,   # English League Cup
     66,   # Coupe de France
