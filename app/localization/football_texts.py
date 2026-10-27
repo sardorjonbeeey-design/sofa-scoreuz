@@ -21,8 +21,7 @@ FOOTBALL_TEXTS = {
         "no_live": "Hozir jonli o‘yinlar yo‘q.",
         "no_today": "Bugun o‘yinlar topilmadi.",
         "no_top_matches": (
-            "Top ligalarda o‘yin yo‘q. Boshqa ligalarda: {count} ta "
-            "o‘yin — «Barcha o‘yinlar» tugmasini bosing."
+            "Tanlangan asosiy ligalar va turnirlarda hozircha o‘yin yo‘q."
         ),
         "updated_at": "🕒 Yangilandi: {time} ({tz})",
         "stale_notice": (
@@ -91,8 +90,7 @@ FOOTBALL_TEXTS = {
         "no_live": "Сейчас нет матчей в прямом эфире.",
         "no_today": "Сегодня матчей не найдено.",
         "no_top_matches": (
-            "В топ-лигах матчей нет. В других лигах: {count} — "
-            "нажмите «Все матчи»."
+            "В выбранных основных лигах и турнирах сейчас нет матчей."
         ),
         "updated_at": "🕒 Обновлено: {time} ({tz})",
         "stale_notice": (
@@ -156,8 +154,7 @@ FOOTBALL_TEXTS = {
         "no_live": "No live matches right now.",
         "no_today": "No matches found for today.",
         "no_top_matches": (
-            "No matches in the top leagues. Other leagues: {count} — "
-            "tap “All matches”."
+            "No matches in the selected major leagues and tournaments right now."
         ),
         "updated_at": "🕒 Updated: {time} ({tz})",
         "stale_notice": (
