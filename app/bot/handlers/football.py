@@ -1,5 +1,6 @@
 """Live scores, today's matches, leagues and standings."""
 
+import html
 import logging
 
 from aiogram import F, Router
@@ -419,6 +420,20 @@ async def league_table(
             league_id,
             type(exc).__name__,
         )
+        # API-Football may be unavailable/suspended. Use cached TinyFish
+        # search evidence without making another provider request.
+        fallback = await service.tinyfish_standings_search(league_id)
+        if fallback is not None:
+            await edit_or_answer(
+                callback,
+                _format_tinyfish_standings_search(fallback, language),
+                _markup(
+                    [_button(text("refresh", language), league_callback(league_id))],
+                    _back_row(language, "menu:standings"),
+                ),
+            )
+            await callback.answer()
+            return
         await _show_error(
             callback,
             language,
@@ -452,6 +467,43 @@ async def league_table(
         ),
     )
     await callback.answer()
+
+
+def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
+    """Render source-linked search evidence, clearly distinguished from a table."""
+    league = html.escape(str(payload.get("league_name") or "League"))
+    queried_at = html.escape(str(payload.get("queried_at") or "unknown"))
+    if language == "uz":
+        lines = [f"🔎 <b>{league} — jadval manbalari</b>",
+                 "Bu to‘liq tasdiqlangan turnir jadvali emas; TinyFish qidiruv natijalari.",
+                 f"Yangilangan: {queried_at}"]
+    elif language == "ru":
+        lines = [f"🔎 <b>{league} — источники таблицы</b>",
+                 "Это не подтверждённая полная таблица, а результаты поиска TinyFish.",
+                 f"Обновлено: {queried_at}"]
+    else:
+        lines = [f"🔎 <b>{league} — standings sources</b>",
+                 "These are TinyFish search results, not a verified complete table.",
+                 f"Updated: {queried_at}"]
+
+    results = payload.get("results")
+    if not isinstance(results, list) or not results:
+        lines.append("\nNo usable source snippets were returned. Try again later.")
+        return "\n".join(lines)
+
+    for item in results[:5]:
+        if not isinstance(item, dict):
+            continue
+        title = html.escape(str(item.get("title") or "Source")[:180])
+        url = str(item.get("url") or "")
+        snippet = html.escape(str(item.get("snippet") or "")[:420])
+        if url.startswith("https://"):
+            lines.append(f'<a href="{html.escape(url, quote=True)}">{title}</a>')
+        else:
+            lines.append(title)
+        if snippet:
+            lines.append(snippet)
+    return "\n".join(lines)[:3900]
 
 
 def _warn_if_unexpected_league(league_id: int, league) -> None:
