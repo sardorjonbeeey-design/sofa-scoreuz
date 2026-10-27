@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from sqlalchemy import (
+    inspect,
     Column,
     DateTime,
     Integer,
@@ -66,11 +67,31 @@ def _create_initial_tables(connection: Connection) -> None:
     Base.metadata.create_all(connection, checkfirst=True)
 
 
+def _add_favorite_team_type(connection: Connection) -> None:
+    # Existing rows are retained and classified as clubs by the default.
+    columns = {
+        column["name"]
+        for column in inspect(connection).get_columns("favorite_teams")
+    }
+    if "team_type" not in columns:
+        connection.execute(
+            text(
+                "ALTER TABLE favorite_teams ADD COLUMN team_type "
+                "VARCHAR(12) NOT NULL DEFAULT 'club'"
+            )
+        )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         version=1,
         name="create users and favorite_teams",
         apply=_create_initial_tables,
+    ),
+    Migration(
+        version=2,
+        name="add favorite team slot type",
+        apply=_add_favorite_team_type,
     ),
 )
 
