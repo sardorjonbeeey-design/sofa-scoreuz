@@ -8,6 +8,7 @@ from app.football.models import (
     Fixture,
     League,
     MatchEvent,
+    SquadPlayer,
     StandingsGroup,
     Team,
 )
@@ -163,6 +164,12 @@ class CachingFootballProvider(FootballProvider):
                 country=country,
             )
         )
+
+    async def get_team_squad(self, team_id: int) -> list[SquadPlayer]:
+        getter = getattr(self.inner, "get_team_squad", None)
+        if getter is None:
+            return []
+        return await getter(team_id)
 
     async def get_team_fixtures(
         self,
