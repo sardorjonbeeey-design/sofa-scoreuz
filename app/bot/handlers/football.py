@@ -2,6 +2,7 @@
 
 import html
 import logging
+import re
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -451,7 +452,7 @@ async def league_table(
 
 
 def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
-    """Render only extracted table rows and identify their source and timestamp."""
+    """Render extracted standings; use a compact code/points view for the EPL."""
     league = html.escape(str(payload.get("league_name") or "League"))
     table = payload.get("table")
     if not isinstance(table, dict):
@@ -459,6 +460,57 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
     rows = table.get("rows")
     if not isinstance(rows, list) or not rows:
         return _format_tinyfish_standings_search(payload, language)
+
+    # Keep full team names in the archive. Abbreviations are presentation-only.
+    is_premier_league = (
+        table.get("league_id") == 39
+        or str(payload.get("league_name") or "").strip().casefold() == "premier league"
+    )
+    if is_premier_league:
+        team_codes = {
+            "arsenal": "ARS",
+            "aston villa": "AVL",
+            "bournemouth": "BOU",
+            "afc bournemouth": "BOU",
+            "brentford": "BRE",
+            "brentford fc": "BRE",
+            "brighton": "BRI",
+            "brighton & hove albion": "BRI",
+            "chelsea": "CHE",
+            "chelsea fc": "CHE",
+            "crystal palace": "CRY",
+            "everton": "EVE",
+            "everton fc": "EVE",
+            "fulham": "FUL",
+            "fulham fc": "FUL",
+            "liverpool": "LIV",
+            "liverpool fc": "LIV",
+            "manchester city": "MCI",
+            "manchester city fc": "MCI",
+            "manchester united": "MUN",
+            "manchester united fc": "MUN",
+            "newcastle united": "NEW",
+            "nottingham forest": "NFO",
+            "tottenham hotspur": "TOT",
+            "west ham united": "WHU",
+            "wolverhampton wanderers": "WOL",
+            "wolves": "WOL",
+        }
+        lines = [f"🏆 <b>Premier League</b>", "", "<code>#  CLUB  PTS</code>"]
+        for index, row in enumerate(rows[:30], start=1):
+            if not isinstance(row, dict):
+                continue
+            raw_team = str(row.get("team") or "Unknown").strip()
+            # Some sources repeat the rank in the team cell (e.g. "1 Arsenal").
+            raw_team = re.sub(r"^\\d+\\s*[.)]?\\s+", "", raw_team)
+            code = team_codes.get(raw_team.casefold(), raw_team[:3].upper())
+            position = row.get("position", index)
+            points = row.get("points", "?")
+            lines.append(f"{html.escape(str(position)):>2}.  <b>{html.escape(code)}</b>    {html.escape(str(points))}")
+        source_url = table.get("source_url")
+        if isinstance(source_url, str) and source_url.startswith("https://"):
+            lines.extend(["", f'<a href="{html.escape(source_url, quote=True)}">Source</a>'])
+        return "\\n".join(lines)[:3900]
 
     retrieved = html.escape(str(table.get("retrieved_at") or payload.get("queried_at") or "unknown"))
     season = table.get("season")
@@ -500,8 +552,7 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
         lines.append(f'{footer}: <a href="{html.escape(source_url, quote=True)}">{source_title}</a>')
     else:
         lines.append(f"{footer}: {source_title}")
-    return "\n".join(lines)[:3900]
-
+    return "\\n".join(lines)[:3900
 
 def _format_tinyfish_standings_search(payload: dict, language: str) -> str:
     """Render source evidence without implying it is a complete standings table."""
