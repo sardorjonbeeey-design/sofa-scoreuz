@@ -58,6 +58,13 @@ class FavoriteTeam(Base):
         String(150),
     )
 
+    team_type: Mapped[str] = mapped_column(
+        String(12),
+        nullable=False,
+        default="club",
+        server_default="club",
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=utc_now,
