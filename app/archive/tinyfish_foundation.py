@@ -73,11 +73,13 @@ class TinyFishFoundationCollector:
         telegram: Bot,
         channel_id: int,
         client: httpx.AsyncClient | None = None,
+        republish_cached: bool = False,
     ):
         self.api_key = api_key.strip()
         self.archive = archive
         self.telegram = telegram
         self.channel_id = channel_id
+        self.republish_cached = republish_cached
         self.client = client or httpx.AsyncClient(timeout=httpx.Timeout(30.0))
         self._owns_client = client is None
 
@@ -86,6 +88,10 @@ class TinyFishFoundationCollector:
             await self.client.aclose()
 
     async def collect_foundation(self) -> None:
+        if self.republish_cached:
+            await self.republish_cached_profiles()
+            return
+
         pending: list[dict[str, str]] = []
         for entity in SEED_ENTITIES:
             existing = await self.archive.get(
@@ -131,6 +137,31 @@ class TinyFishFoundationCollector:
             "TinyFish foundation collection finished: %s/%s profiles archived.",
             succeeded,
             len(pending),
+        )
+
+    async def republish_cached_profiles(self) -> None:
+        """Publish saved profiles to the configured channel without web searches."""
+        published = missing = failed = 0
+        logger.info("Cached foundation republish starting for %s entities.", len(SEED_ENTITIES))
+        for entity in SEED_ENTITIES:
+            try:
+                record = await self.archive.get(
+                    kind=f"foundation_{entity['kind']}", record_key=entity["key"]
+                )
+                if record is None:
+                    missing += 1
+                    logger.warning("No cached foundation profile to republish for %s.", entity["key"])
+                    continue
+                if await self._publish_digest(record.payload):
+                    published += 1
+                else:
+                    failed += 1
+            except Exception:
+                failed += 1
+                logger.exception("Cached foundation republish failed for %s.", entity["key"])
+        logger.info(
+            "Cached foundation republish finished: %s published, %s failed, %s missing.",
+            published, failed, missing,
         )
 
     async def _research_entity(self, entity: dict[str, str]) -> dict[str, Any] | None:
@@ -198,7 +229,7 @@ class TinyFishFoundationCollector:
             "research_method": "TinyFish Web Search API; source snippets, not AI-generated summary",
         }
 
-    async def _publish_digest(self, profile: dict[str, Any]) -> None:
+    async def _publish_digest(self, profile: dict[str, Any]) -> bool:
         entity_type = "Competition" if profile["entity_type"] == "competition" else "Club / team"
         lines = [
             "📚 <b>Football knowledge archive</b>",
@@ -219,5 +250,8 @@ class TinyFishFoundationCollector:
                 parse_mode="HTML",
                 disable_web_page_preview=True,
             )
+            logger.info("Telegram accepted foundation digest for %s.", profile["key"])
+            return True
         except Exception:
             logger.exception("Could not publish TinyFish foundation digest for %s.", profile["key"])
+            return False
