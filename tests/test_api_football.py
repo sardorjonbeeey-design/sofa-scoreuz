@@ -68,6 +68,32 @@ async def test_successful_search_is_parsed():
     await provider.close()
 
 
+async def test_team_squad_endpoint_parses_player_details():
+    payload = {
+        "errors": [],
+        "response": [{
+            "team": {"id": 529, "name": "Barcelona"},
+            "players": [{
+                "id": 10, "name": "Player One", "age": 24,
+                "number": 8, "position": "Midfielder",
+                "photo": "https://example.test/player.png",
+            }],
+        }],
+    }
+    provider, calls = make_provider(
+        lambda r, n: httpx.Response(200, json=payload)
+    )
+
+    players = await provider.get_team_squad(529)
+
+    assert len(players) == 1
+    assert players[0].name == "Player One"
+    assert players[0].number == 8
+    assert players[0].position == "Midfielder"
+    assert calls[0].url.path.endswith("/players/squads")
+    await provider.close()
+
+
 async def test_genuine_no_match_returns_empty_list_not_an_error():
     provider, _ = make_provider(
         lambda r, n: httpx.Response(200, json=team_payload())

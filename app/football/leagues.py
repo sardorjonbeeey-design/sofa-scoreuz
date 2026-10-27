@@ -36,8 +36,6 @@ FEATURED_LEAGUES: tuple[FeaturedLeague, ...] = (
     FeaturedLeague(135, "Serie A", "🇮🇹"),
     FeaturedLeague(78, "Bundesliga", "🇩🇪"),
     FeaturedLeague(61, "Ligue 1", "🇫🇷"),
-    FeaturedLeague(94, "Primeira Liga", "🇵🇹"),
-    FeaturedLeague(88, "Eredivisie", "🇳🇱"),
     FeaturedLeague(203, "Süper Lig", "🇹🇷"),
     FeaturedLeague(235, "Russian Premier League", "🇷🇺"),
     FeaturedLeague(307, "Saudi Pro League", "🇸🇦"),
@@ -50,8 +48,41 @@ FEATURED_COUNTRIES: tuple[FeaturedCountry, ...] = (
 _PRIORITY = {league.id: index for index, league in enumerate(FEATURED_LEAGUES)}
 
 
+# Additional competitions are included in live/today feeds, but only actual
+# leagues above are offered in the standings menu.
+FEATURED_CUP_AND_INTERNATIONAL_IDS = frozenset({
+    1,    # FIFA World Cup
+    4,    # UEFA European Championship
+    5,    # UEFA Nations League
+    6,    # Africa Cup of Nations
+    7,    # AFC Asian Cup
+    9,    # Copa América
+    13,   # Olympic football tournament
+    15,   # FIFA Club World Cup
+    29,   # World Cup qualification: Africa
+    30,   # World Cup qualification: Asia
+    31,   # World Cup qualification: CONCACAF
+    32,   # World Cup qualification: Europe
+    33,   # World Cup qualification: Oceania
+    34,   # World Cup qualification: South America
+    45,   # FA Cup
+    48,   # English League Cup
+    66,   # Coupe de France
+    81,   # DFB-Pokal
+    137,  # Coppa Italia
+    143,  # Copa del Rey
+    206,  # Turkish Cup
+    237,  # Russian Cup
+    504,  # Saudi King's Cup
+})
+
+
 def featured_league_ids() -> frozenset[int]:
     return frozenset(_PRIORITY)
+
+
+def featured_competition_ids() -> frozenset[int]:
+    return frozenset(_PRIORITY) | FEATURED_CUP_AND_INTERNATIONAL_IDS
 
 
 def featured_country_names() -> frozenset[str]:

@@ -18,7 +18,9 @@ from aiogram.methods import AnswerCallbackQuery, EditMessageText, SendMessage
 from aiogram.types import CallbackQuery, Chat, Message, Update, User
 
 from app.bot.bot import create_dispatcher
+from app.bot.handlers import menu
 from app.football.leagues import FEATURED_LEAGUES
+from app.football.news import NewsItem
 from app.football.models import League, Team
 from app.football.team_directory import TeamDirectory
 from app.football.team_resolver import TeamResolver
@@ -117,14 +119,19 @@ def edits(requests):
         ("menu:matches", "Real Madrid"),
         ("menu:standings", "Choose a competition"),
         ("lg:39", "Premier League"),
-        ("menu:news", "not ready"),
+        ("menu:news", "Football news"),
         ("menu:settings", "Choose your language"),
         ("team:view:42", "Arsenal"),
         ("menu:teams", "My Teams"),
         ("team:search", "team"),
     ],
 )
-async def test_every_screen_is_reachable_through_the_real_dispatcher(app, data, expected):
+async def test_every_screen_is_reachable_through_the_real_dispatcher(app, data, expected, monkeypatch):
+    async def sample_news(**kwargs):
+        return (NewsItem("Top league update", "https://example.test/news", "Example"),)
+
+    if data == "menu:news":
+        monkeypatch.setattr(menu, "football_news", sample_news)
     requests = await app.feed(callback_update(data))
 
     sent = edits(requests)
@@ -183,7 +190,11 @@ async def test_the_same_screen_for_many_users_costs_one_api_request(app):
     assert app.world.calls["live"] == 1
 
 
-async def test_without_an_api_key_the_dispatcher_still_serves_the_menu(world):
+async def test_without_an_api_key_the_dispatcher_still_serves_the_menu(world, monkeypatch):
+    async def no_news(**kwargs):
+        return ()
+
+    monkeypatch.setattr(menu, "football_news", no_news)
     session = RecordingSession()
     bot = Bot("123456:TEST-TOKEN", session=session)
     dispatcher = create_dispatcher(make_settings(default_language="en"))
@@ -193,7 +204,7 @@ async def test_without_an_api_key_the_dispatcher_still_serves_the_menu(world):
 
     texts = [r.text for r in session.requests if isinstance(r, EditMessageText)]
     assert any("unavailable" in t for t in texts)
-    assert any("not ready" in t for t in texts)
+    assert any("Could not load news" in t for t in texts)
 
 
 def test_the_menu_covers_every_featured_league_button_id():

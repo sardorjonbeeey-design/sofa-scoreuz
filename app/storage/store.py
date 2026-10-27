@@ -45,6 +45,7 @@ class AddFavoriteResult(str, Enum):
 class FavoriteTeamRecord:
     team_id: int
     team_name: str
+    team_type: str = "club"
 
 
 class PreferenceStore(Protocol):
@@ -68,8 +69,8 @@ class PreferenceStore(Protocol):
         team_id: int,
         team_name: str,
         limit: int,
+        team_type: str | None = None,
     ) -> AddFavoriteResult: ...
-
     async def remove_favorite(
         self,
         telegram_id: int,
@@ -114,19 +115,24 @@ class MemoryPreferenceStore:
         team_id: int,
         team_name: str,
         limit: int,
+        team_type: str | None = None,
     ) -> AddFavoriteResult:
         favorites = self._favorites.setdefault(telegram_id, [])
 
         if any(item.team_id == team_id for item in favorites):
             return AddFavoriteResult.DUPLICATE
 
-        if len(favorites) >= limit:
+        if team_type is not None:
+            if any(item.team_type == team_type for item in favorites):
+                return AddFavoriteResult.LIMIT_REACHED
+        elif len(favorites) >= limit:
             return AddFavoriteResult.LIMIT_REACHED
 
         favorites.append(
             FavoriteTeamRecord(
                 team_id=team_id,
                 team_name=team_name[:TEAM_NAME_MAX_LENGTH],
+                team_type=team_type or "club",
             )
         )
 
@@ -230,6 +236,7 @@ class SqlPreferenceStore:
                 FavoriteTeamRecord(
                     team_id=row.team_id,
                     team_name=row.team_name,
+                    team_type=row.team_type,
                 )
                 for row in rows
             ]
@@ -240,6 +247,7 @@ class SqlPreferenceStore:
         team_id: int,
         team_name: str,
         limit: int,
+        team_type: str | None = None,
     ) -> AddFavoriteResult:
         async with self._lock_for(telegram_id):
             async with self._session("add_favorite") as session:
@@ -254,7 +262,11 @@ class SqlPreferenceStore:
                 if await favorites.exists(user.id, team_id):
                     return AddFavoriteResult.DUPLICATE
 
-                if await favorites.count_for_user(user.id) >= limit:
+                existing = await favorites.list_for_user(user.id)
+                if team_type is not None:
+                    if any(row.team_type == team_type for row in existing):
+                        return AddFavoriteResult.LIMIT_REACHED
+                elif len(existing) >= limit:
                     return AddFavoriteResult.LIMIT_REACHED
 
                 try:
@@ -262,6 +274,7 @@ class SqlPreferenceStore:
                         user.id,
                         team_id,
                         team_name[:TEAM_NAME_MAX_LENGTH],
+                        team_type or "club",
                     )
                 except IntegrityError:
                     # Lost a race with an identical request.

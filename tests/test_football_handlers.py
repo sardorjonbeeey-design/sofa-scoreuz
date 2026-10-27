@@ -148,10 +148,10 @@ async def test_live_scores_show_matches_scores_and_minutes(tap):
     assert "Updated:" in body
 
 
-async def test_live_buttons_offer_scope_refresh_and_back(tap):
+async def test_live_buttons_offer_refresh_and_back_without_all_leagues(tap):
     data = buttons(await tap("menu:live"))
 
-    assert "fx:l:a:0" in data  # all matches
+    assert "fx:l:a:0" not in data
     assert "fx:l:t:0" in data  # refresh
     assert "menu:main" in data
     assert all(len(d.encode()) <= 64 for d in data)
@@ -165,17 +165,16 @@ async def test_no_live_matches_says_so(tap, world):
     assert "No live matches right now." in body
 
 
-async def test_live_matches_outside_top_leagues_hint_at_all_matches(tap, world):
+async def test_live_matches_outside_coverage_are_never_shown(tap, world):
     world.live = [make_fixture(9, status="1H", elapsed=3, league_id=99999,
                                competition="Tiny", country="Nowhere")]
 
     body, _ = edited(await tap("menu:live"))
 
-    assert "No matches in the top leagues. Other leagues: 1" in body
+    assert "No matches in the selected major leagues" in body
 
     body, _ = edited(await tap("fx:l:a:0"))
-
-    assert "Tiny" in body
+    assert "Tiny" not in body
 
 
 async def test_live_scores_are_shared_between_users(tap, world):
@@ -219,10 +218,10 @@ async def test_the_old_matches_button_id_still_works(tap):
     assert "Today's matches" in body
 
 
-async def test_today_all_scope_includes_every_league(tap):
+async def test_legacy_today_all_scope_callback_still_obeys_coverage(tap):
     body, _ = edited(await tap("fx:d:a:0"))
 
-    assert "Nobody FC" in body and "Real Madrid" in body
+    assert "Nobody FC" not in body and "Real Madrid" in body
 
 
 async def test_empty_today_says_so(tap, world):
@@ -236,8 +235,8 @@ async def test_empty_today_says_so(tap, world):
 async def test_long_lists_paginate_with_working_navigation(tap, world):
     world.by_date = [
         make_fixture(100 + i, f"Home Team Number {i}", f"Away Team Number {i}",
-                     competition=f"League {i % 9}", league_id=40000 + i % 9,
-                     country=f"Country {i % 9}")
+                     competition="Premier League", league_id=39,
+                     country="England")
         for i in range(300)
     ]
 
@@ -512,25 +511,28 @@ async def test_menu_buttons_leave_search_mode(tap, state):
     assert await state.get_state() is None
 
 
-# --- news and settings (unfinished / language) ----------------------------------------
+# --- news and settings (language) -----------------------------------------------------
 
 
-async def test_news_is_honestly_marked_as_unfinished(tap):
+async def test_news_screen_uses_localized_unavailable_fallback(tap, monkeypatch):
+    async def no_news(**kwargs):
+        return ()
+
+    monkeypatch.setattr(menu, "football_news", no_news)
     callback = await tap("menu:news")
 
     body, _ = edited(callback)
 
-    assert "🚧" in body and "not ready" in body
+    assert text("news_unavailable", "en") in body
     assert "menu:main" in buttons(callback)
 
 
 @pytest.mark.parametrize("language", SUPPORTED_LANGUAGES)
-def test_the_main_menu_marks_the_unfinished_news_button(language):
+def test_the_main_menu_shows_news_without_unfinished_marker(language):
     labels = [b.text for row in menu.main_menu(language).inline_keyboard for b in row]
 
-    assert [label for label in labels if "🚧" in label] == [
-        f"{text('news', language)} 🚧"
-    ]
+    assert text("news", language) in labels
+    assert not any("🚧" in label for label in labels)
 
 
 async def test_settings_lets_the_user_switch_language(tap, store, state):
@@ -554,7 +556,11 @@ async def test_settings_lets_the_user_switch_language(tap, store, state):
 
 
 @pytest.mark.parametrize("language", SUPPORTED_LANGUAGES)
-async def test_every_screen_is_shown_in_the_users_language(tap, store, language):
+async def test_every_screen_is_shown_in_the_users_language(tap, store, language, monkeypatch):
+    async def no_news(**kwargs):
+        return ()
+
+    monkeypatch.setattr(menu, "football_news", no_news)
     await store.set_language(USER, language)
 
     for entry, key in (("menu:live", "live_title"), ("menu:news", "news_unavailable"),
@@ -566,8 +572,13 @@ async def test_every_screen_is_shown_in_the_users_language(tap, store, language)
 # --- navigation ------------------------------------------------------------------------
 
 
-async def test_every_button_reachable_from_the_menu_leads_somewhere(tap, store, directory):
+async def test_every_button_reachable_from_the_menu_leads_somewhere(tap, store, directory, monkeypatch):
     """Crawl the whole UI: no dead buttons, no crashes, no placeholders."""
+    async def no_news(**kwargs):
+        return ()
+
+    monkeypatch.setattr(menu, "football_news", no_news)
+    monkeypatch.setattr(teams, "football_news", no_news)
     await store.add_favorite(USER, 42, "Arsenal", 3)
     await directory.remember([ARSENAL])
     seen, queue, pressed = set(), ["menu:main"], 0

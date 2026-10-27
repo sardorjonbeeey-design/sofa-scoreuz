@@ -17,6 +17,16 @@ class Team:
 
 
 @dataclass(frozen=True)
+class SquadPlayer:
+    id: int
+    name: str
+    age: int | None = None
+    number: int | None = None
+    position: str | None = None
+    photo_url: str | None = None
+
+
+@dataclass(frozen=True)
 class Fixture:
     id: int
     home_team: Team

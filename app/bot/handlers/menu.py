@@ -1,3 +1,6 @@
+import logging
+from html import escape
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
@@ -8,13 +11,12 @@ from aiogram.types import (
 
 from app.bot.handlers.common import edit_or_answer, user_language
 from app.config import Settings
+from app.football.news import football_news
 from app.localization.i18n import text
 from app.storage.store import PreferenceStore
 
 router = Router()
-
-# Marks a menu entry whose feature does not exist yet.
-UNFINISHED_MARK = "🚧"
+logger = logging.getLogger(__name__)
 
 
 def _button(label: str, data: str) -> InlineKeyboardButton:
@@ -34,11 +36,7 @@ def main_menu(language: str) -> InlineKeyboardMarkup:
                 _button(text("find_team", language), "team:search"),
             ],
             [
-                # News has no data source yet: say so on the button.
-                _button(
-                    f"{text('news', language)} {UNFINISHED_MARK}",
-                    "menu:news",
-                ),
+                _button(text("news", language), "menu:news"),
                 _button(text("settings", language), "menu:settings"),
             ],
         ]
@@ -84,10 +82,6 @@ async def news_handler(
     store: PreferenceStore,
     settings: Settings,
 ) -> None:
-    """News is NOT implemented (no news source is connected).
-
-    The screen says so plainly instead of pretending to be a feature.
-    """
     language = await user_language(
         store,
         settings,
@@ -95,11 +89,27 @@ async def news_handler(
     )
 
     await state.set_state(None)
+    await callback.answer()
+
+    try:
+        items = await football_news(language=language)
+    except Exception:
+        logger.exception("Could not load football news.")
+        items = ()
+
+    if items:
+        lines = [text("news_title", language)]
+        for index, item in enumerate(items, start=1):
+            title = escape(item.title)
+            url = escape(item.url, quote=True)
+            source = f" <i>— {escape(item.source)}</i>" if item.source else ""
+            lines.append(f'{index}. <a href="{url}">{title}</a>{source}')
+        body = "\n\n".join(lines)
+    else:
+        body = text("news_unavailable", language)
 
     await edit_or_answer(
         callback,
-        text("news_unavailable", language),
+        body,
         back_to_menu_keyboard(language),
     )
-
-    await callback.answer()

@@ -8,10 +8,11 @@ from app.cache.snapshot import Snapshot, SnapshotCache
 from app.football.models import (
     Fixture,
     League,
+    SquadPlayer,
     StandingsGroup,
     Team,
 )
-from app.football.errors import ProviderError
+from app.football.errors import ProviderError, ProviderUnavailableError
 from app.football.leagues import FEATURED_COUNTRIES, featured_league_ids
 from app.football.provider import FootballProvider
 from app.football.status import FINISHED_STATUSES, NOT_PLAYED_STATUSES
@@ -34,6 +35,7 @@ class CacheTimes:
     fixtures: int = 300
     standings: int = 30 * 60
     team_fixtures: int = 10 * 60
+    team_squad: int = 12 * 60 * 60
     country_leagues: int = 12 * 60 * 60
 
     # How long old data may still be shown when the provider fails.
@@ -42,6 +44,7 @@ class CacheTimes:
     fixtures_max_stale: int = 60 * 60
     standings_max_stale: int = 24 * 60 * 60
     team_fixtures_max_stale: int = 6 * 60 * 60
+    team_squad_max_stale: int = 24 * 60 * 60
     country_leagues_max_stale: int = 7 * 24 * 60 * 60
 
 
@@ -210,6 +213,20 @@ class FootballService:
                     continue
 
         return league_id in self._known_league_ids
+
+    async def team_squad(self, team_id: int) -> Snapshot[tuple[SquadPlayer, ...]]:
+        async def load():
+            getter = getattr(self.provider, "get_team_squad", None)
+            if getter is None:
+                raise ProviderUnavailableError("Squad data is unsupported.")
+            return tuple(await getter(team_id))
+
+        return await self.cache.get(
+            f"team-squad:{team_id}",
+            load,
+            ttl=self.times.team_squad,
+            max_stale=self.times.team_squad_max_stale,
+        )
 
     async def team_matches(self, team_id: int) -> Snapshot[TeamMatches]:
         async def load():

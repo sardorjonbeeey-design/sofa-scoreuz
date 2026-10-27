@@ -21,8 +21,7 @@ FOOTBALL_TEXTS = {
         "no_live": "Hozir jonli o‘yinlar yo‘q.",
         "no_today": "Bugun o‘yinlar topilmadi.",
         "no_top_matches": (
-            "Top ligalarda o‘yin yo‘q. Boshqa ligalarda: {count} ta "
-            "o‘yin — «Barcha o‘yinlar» tugmasini bosing."
+            "Tanlangan asosiy ligalar va turnirlarda hozircha o‘yin yo‘q."
         ),
         "updated_at": "🕒 Yangilandi: {time} ({tz})",
         "stale_notice": (
@@ -43,6 +42,12 @@ FOOTBALL_TEXTS = {
         "col_points": "Och",
         # team page
         "team_country": "Mamlakat",
+        "team_kind_club": "⚽ Klub",
+        "team_kind_national": "🌍 Milliy terma jamoa",
+        "team_squad": "👥 Tarkib",
+        "team_news": "📰 Yangiliklar",
+        "team_next_games": "📅 Keyingi o‘yinlar",
+        "team_standings": "🏆 Jadval",
         "team_stadium": "Stadion",
         "team_founded": "Asos solingan yil: {year}",
         "team_upcoming": "📅 Yaqin o‘yinlar",
@@ -57,11 +62,14 @@ FOOTBALL_TEXTS = {
         "team_page_unavailable": (
             "Jamoa ma’lumotlarini hozir yuklab bo‘lmadi."
         ),
-        # unfinished / settings
-        "news_unavailable": (
-            "📰 <b>Yangiliklar</b>\n\n🚧 Bu bo‘lim hali tayyor emas. "
-            "Hozircha yangiliklar mavjud emas."
-        ),
+        # news, squad and settings
+        "news_title": "📰 <b>Futbol yangiliklari</b>",
+        "news_unavailable": "Yangiliklarni hozir yuklab bo‘lmadi.",
+        "no_news": "Hozircha mos yangilik topilmadi.",
+        "squad_title": "Tarkib",
+        "squad_unavailable": "Jamoa tarkibini hozir yuklab bo‘lmadi.",
+        "no_squad": "Tarkib ma’lumoti mavjud emas.",
+        "team_games_title": "Yaqin 5 ta o‘yin",
         "settings_title": "⚙️ <b>Sozlamalar</b>\n\nTilni tanlang:",
         "settings_timezone": "🕒 Vaqt zonasi: {tz}",
         # match status labels
@@ -91,8 +99,7 @@ FOOTBALL_TEXTS = {
         "no_live": "Сейчас нет матчей в прямом эфире.",
         "no_today": "Сегодня матчей не найдено.",
         "no_top_matches": (
-            "В топ-лигах матчей нет. В других лигах: {count} — "
-            "нажмите «Все матчи»."
+            "В выбранных основных лигах и турнирах сейчас нет матчей."
         ),
         "updated_at": "🕒 Обновлено: {time} ({tz})",
         "stale_notice": (
@@ -112,6 +119,12 @@ FOOTBALL_TEXTS = {
         "col_gd": "РМ",
         "col_points": "О",
         "team_country": "Страна",
+        "team_kind_club": "⚽ Клуб",
+        "team_kind_national": "🌍 Национальная сборная",
+        "team_squad": "👥 Состав",
+        "team_news": "📰 Новости",
+        "team_next_games": "📅 Следующие матчи",
+        "team_standings": "🏆 Таблица",
         "team_stadium": "Стадион",
         "team_founded": "Год основания: {year}",
         "team_upcoming": "📅 Ближайшие матчи",
@@ -124,10 +137,13 @@ FOOTBALL_TEXTS = {
         "team_page_unavailable": (
             "Сейчас не удалось загрузить данные команды."
         ),
-        "news_unavailable": (
-            "📰 <b>Новости</b>\n\n🚧 Этот раздел ещё не готов. "
-            "Новости пока недоступны."
-        ),
+        "news_title": "📰 <b>Футбольные новости</b>",
+        "news_unavailable": "Не удалось загрузить новости.",
+        "no_news": "Подходящих новостей пока нет.",
+        "squad_title": "Состав",
+        "squad_unavailable": "Не удалось загрузить состав команды.",
+        "no_squad": "Данные о составе недоступны.",
+        "team_games_title": "Следующие 5 матчей",
         "settings_title": "⚙️ <b>Настройки</b>\n\nВыберите язык:",
         "settings_timezone": "🕒 Часовой пояс: {tz}",
         "status_HT": "Перерыв",
@@ -156,8 +172,7 @@ FOOTBALL_TEXTS = {
         "no_live": "No live matches right now.",
         "no_today": "No matches found for today.",
         "no_top_matches": (
-            "No matches in the top leagues. Other leagues: {count} — "
-            "tap “All matches”."
+            "No matches in the selected major leagues and tournaments right now."
         ),
         "updated_at": "🕒 Updated: {time} ({tz})",
         "stale_notice": (
@@ -176,6 +191,12 @@ FOOTBALL_TEXTS = {
         "col_gd": "GD",
         "col_points": "Pts",
         "team_country": "Country",
+        "team_kind_club": "⚽ Club",
+        "team_kind_national": "🌍 National team",
+        "team_squad": "👥 Squad",
+        "team_news": "📰 News",
+        "team_next_games": "📅 Next games",
+        "team_standings": "🏆 Standings",
         "team_stadium": "Stadium",
         "team_founded": "Founded: {year}",
         "team_upcoming": "📅 Upcoming matches",
@@ -186,10 +207,13 @@ FOOTBALL_TEXTS = {
         "add_to_favorites": "⭐ Add to favorites",
         "remove_from_favorites": "🗑 Remove from favorites",
         "team_page_unavailable": "Could not load the team details right now.",
-        "news_unavailable": (
-            "📰 <b>News</b>\n\n🚧 This section is not ready yet. "
-            "News is not available for now."
-        ),
+        "news_title": "📰 <b>Football news</b>",
+        "news_unavailable": "Could not load news right now.",
+        "no_news": "No relevant news found right now.",
+        "squad_title": "Squad",
+        "squad_unavailable": "Could not load this team's squad right now.",
+        "no_squad": "Squad information is not available.",
+        "team_games_title": "Next 5 games",
         "settings_title": "⚙️ <b>Settings</b>\n\nChoose your language:",
         "settings_timezone": "🕒 Time zone: {tz}",
         "status_HT": "HT",

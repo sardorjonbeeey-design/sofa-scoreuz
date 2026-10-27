@@ -114,12 +114,14 @@ class FavoriteTeamRepository:
         user_id: int,
         team_id: int,
         team_name: str,
+        team_type: str = "club",
     ) -> FavoriteTeam:
 
         favorite = FavoriteTeam(
             user_id=user_id,
             team_id=team_id,
             team_name=team_name,
+            team_type=team_type,
         )
 
         self.session.add(favorite)

@@ -18,6 +18,7 @@ TEAM_ACTIONS = (ACTION_ADD_TEAM, ACTION_REMOVE_TEAM, ACTION_VIEW_TEAM)
 # Strict: ASCII digits only (``\d`` would also accept other scripts),
 # positive ids, bounded length.
 _TEAM_CALLBACK = re.compile(r"team:(add|rm|view):([1-9][0-9]{0,11})")
+_TEAM_FEATURE_CALLBACK = re.compile(r"team:(squad|news|games):([1-9][0-9]{0,11})")
 
 # Buttons sent by older versions looked like "team:add:<id>:<name>".
 _LEGACY_ADD_CALLBACK = re.compile(r"team:add:[0-9]+:.*", re.DOTALL)
@@ -56,6 +57,19 @@ def parse_team_callback(
     if match is None or match.group(1) != action:
         return None
 
+    return int(match.group(2))
+
+
+def parse_team_feature_callback(
+    data: str | None,
+    action: str,
+) -> int | None:
+    """Parse a numeric id from a team subpage action callback."""
+    if not data or action not in {"squad", "news", "games"}:
+        return None
+    match = _TEAM_FEATURE_CALLBACK.fullmatch(data)
+    if match is None or match.group(1) != action:
+        return None
     return int(match.group(2))
 
 
