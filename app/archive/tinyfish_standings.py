@@ -228,6 +228,14 @@ class TinyFishStandingsCollector:
                     )
                 else:
                     logger.warning("No valid structured standings table found for %s.", league.name)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in (401, 403):
+                    logger.error(
+                        "TinyFish authorization failed (HTTP %s); stopping this collection run.",
+                        exc.response.status_code,
+                    )
+                    return
+                logger.exception("TinyFish standings collection failed for %s.", league.name)
             except (httpx.HTTPError, ValueError, TypeError):
                 logger.exception("TinyFish standings collection failed for %s.", league.name)
             except Exception:
