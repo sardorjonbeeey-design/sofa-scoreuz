@@ -1,20 +1,51 @@
-"""Versioned, non-destructive schema migrations."""
+"""Versioned, non-destructive schema migrations.
+
+Applied migrations are recorded in the schema_migrations table, so every
+migration runs exactly once per database. Nothing here ever drops tables
+or data.
+
+To change the schema later:
+
+1. Change the model in app/storage/models.py.
+2. Append a new Migration with the next version number.
+3. Never edit or reorder a migration that has already been released.
+
+On PostgreSQL a transaction-scoped advisory lock serialises concurrent
+runs. SQLite (local development and tests only) auto-commits DDL, so it
+does not give the same transaction guarantees.
+"""
+
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
 
-from sqlalchemy import inspect, Column, DateTime, Integer, MetaData, String, Table, select, text
+from sqlalchemy import (
+    inspect,
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    select,
+    text,
+)
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.storage.models import Base
 
 logger = logging.getLogger(__name__)
+
+# Arbitrary constant identifying "Flash Football schema migration".
 ADVISORY_LOCK_KEY = 720_394_117
+
 _version_metadata = MetaData()
+
 schema_migrations = Table(
-    "schema_migrations", _version_metadata,
+    "schema_migrations",
+    _version_metadata,
     Column("version", Integer, primary_key=True, autoincrement=False),
     Column("name", String(200), nullable=False),
     Column("applied_at", DateTime(timezone=True), nullable=False),
@@ -29,51 +60,111 @@ class Migration:
 
 
 def _create_initial_tables(connection: Connection) -> None:
+    # checkfirst=True: tables that already exist are left untouched.
     Base.metadata.create_all(connection, checkfirst=True)
 
 
 def _add_favorite_team_type(connection: Connection) -> None:
-    columns = {column["name"] for column in inspect(connection).get_columns("favorite_teams")}
+    # Existing rows are retained and classified as clubs by the default.
+    columns = {
+        column["name"]
+        for column in inspect(connection).get_columns("favorite_teams")
+    }
     if "team_type" not in columns:
-        connection.execute(text("ALTER TABLE favorite_teams ADD COLUMN team_type VARCHAR(12) NOT NULL DEFAULT 'club'"))
+        connection.execute(
+            text(
+                "ALTER TABLE favorite_teams ADD COLUMN team_type "
+                "VARCHAR(12) NOT NULL DEFAULT 'club'"
+            )
+        )
 
 
 def _create_archive_records(connection: Connection) -> None:
-    Base.metadata.tables["archive_records"].create(connection, checkfirst=True)
+    # Safe for fresh databases and databases where migration 1 already
+    # created all current metadata tables.
+    Base.metadata.tables["archive_records"].create(
+        connection,
+        checkfirst=True,
+    )
 
 
 MIGRATIONS: tuple[Migration, ...] = (
-    Migration(1, "create users and favorite_teams", _create_initial_tables),
-    Migration(2, "add favorite team slot type", _add_favorite_team_type),
-    Migration(3, "create persistent football archive", _create_archive_records),
+    Migration(
+        version=1,
+        name="create users and favorite_teams",
+        apply=_create_initial_tables,
+    ),
+    Migration(
+        version=2,
+        name="add favorite team slot type",
+        apply=_add_favorite_team_type,
+    ),
+    Migration(
+        version=3,
+        name="create persistent football archive",
+        apply=_create_archive_records,
+    ),
 )
 
 
 def _validate(migrations: tuple[Migration, ...]) -> None:
     versions = [item.version for item in migrations]
+
     if versions != sorted(set(versions)):
-        raise RuntimeError("MIGRATIONS must have unique, ascending version numbers.")
+        raise RuntimeError(
+            "MIGRATIONS must have unique, ascending version numbers."
+        )
 
 
 _validate(MIGRATIONS)
 
 
-async def run_migrations(engine: AsyncEngine, migrations: tuple[Migration, ...] = MIGRATIONS) -> list[int]:
+async def run_migrations(
+    engine: AsyncEngine,
+    migrations: tuple[Migration, ...] = MIGRATIONS,
+) -> list[int]:
+    """Apply pending migrations. Returns the versions applied now."""
     _validate(migrations)
+
     applied_now: list[int] = []
+
     async with engine.begin() as connection:
         if connection.dialect.name == "postgresql":
-            await connection.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": ADVISORY_LOCK_KEY})
-        await connection.run_sync(lambda sync_conn: schema_migrations.create(sync_conn, checkfirst=True))
-        result = await connection.execute(select(schema_migrations.c.version))
+            await connection.execute(
+                text("SELECT pg_advisory_xact_lock(:key)"),
+                {"key": ADVISORY_LOCK_KEY},
+            )
+
+        await connection.run_sync(
+            lambda sync_conn: schema_migrations.create(
+                sync_conn,
+                checkfirst=True,
+            )
+        )
+
+        result = await connection.execute(
+            select(schema_migrations.c.version)
+        )
         already_applied = {row[0] for row in result}
+
         for migration in migrations:
             if migration.version in already_applied:
                 continue
+
             await connection.run_sync(migration.apply)
-            await connection.execute(schema_migrations.insert().values(
-                version=migration.version, name=migration.name, applied_at=datetime.now(timezone.utc)
-            ))
+            await connection.execute(
+                schema_migrations.insert().values(
+                    version=migration.version,
+                    name=migration.name,
+                    applied_at=datetime.now(timezone.utc),
+                )
+            )
             applied_now.append(migration.version)
-            logger.info("Applied database migration %s: %s", migration.version, migration.name)
+
+            logger.info(
+                "Applied database migration %s: %s",
+                migration.version,
+                migration.name,
+            )
+
     return applied_now
