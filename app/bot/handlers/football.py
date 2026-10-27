@@ -510,7 +510,7 @@ def _format_tinyfish_standings_table(payload: dict, language: str) -> str:
         source_url = table.get("source_url")
         if isinstance(source_url, str) and source_url.startswith("https://"):
             lines.extend(["", f'<a href="{html.escape(source_url, quote=True)}">Source</a>'])
-        return "\\n".join(lines)[:3900]
+        return "\n".join(lines)[:3900]
 
     retrieved = html.escape(str(table.get("retrieved_at") or payload.get("queried_at") or "unknown"))
     season = table.get("season")
