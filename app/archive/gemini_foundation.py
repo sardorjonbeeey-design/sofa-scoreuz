@@ -274,15 +274,17 @@ def _text_list(value: Any, *, limit: int) -> list[str]:
 
 def _profile_sources(value: Any, grounded: list[dict[str, str]]) -> list[dict[str, str]]:
     result: list[dict[str, str]] = []
+    grounded_by_url = {item["url"]: item for item in grounded}
     if isinstance(value, list):
         for item in value:
             if not isinstance(item, dict):
                 continue
             url = str(item.get("url") or "").strip()
             title = str(item.get("title") or url).strip()
-            if url.startswith("https://") and item not in result:
+            # Only publish citations returned by Google's grounding metadata;
+            # never trust a URL merely because the model wrote it.
+            if url in grounded_by_url and url not in {entry["url"] for entry in result}:
                 result.append({"url": url, "title": title[:200]})
-    # Grounding links are the provenance fallback when the model's JSON omits URLs.
     if not result:
         result = grounded[:5]
     return result[:5]
