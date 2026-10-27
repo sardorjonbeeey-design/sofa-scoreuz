@@ -16,6 +16,7 @@ from app.football.models import (
     Fixture,
     League,
     MatchEvent,
+    SquadPlayer,
     StandingRow,
     StandingsGroup,
     Team,
@@ -241,6 +242,31 @@ class ApiFootballProvider(FootballProvider):
         teams = _parse_items(data, _team_from_item, "team")
 
         return teams[0] if teams else None
+
+    async def get_team_squad(self, team_id: int) -> list[SquadPlayer]:
+        data = await self._get("/players/squads", {"team": team_id})
+        players: list[SquadPlayer] = []
+
+        for item in data.get("response", []):
+            for raw in item.get("players") or []:
+                try:
+                    player_id = int(raw["id"])
+                    name = str(raw["name"]).strip()
+                    if not name:
+                        continue
+                    players.append(
+                        SquadPlayer(
+                            id=player_id,
+                            name=name,
+                            age=_int_or_none(raw.get("age")),
+                            number=_int_or_none(raw.get("number")),
+                            position=raw.get("position"),
+                            photo_url=raw.get("photo"),
+                        )
+                    )
+                except (KeyError, TypeError, ValueError):
+                    logger.warning("Skipping malformed squad player.")
+        return players
 
     async def get_team_fixtures(
         self,
