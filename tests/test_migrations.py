@@ -90,7 +90,7 @@ async def test_database_created_before_versioning_is_adopted(engine):
             )
         )
 
-    assert await run_migrations(engine) == [1]
+    assert await run_migrations(engine) == [1, 2]
 
     async with engine.connect() as connection:
         count = (
