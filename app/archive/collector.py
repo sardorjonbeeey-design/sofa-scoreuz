@@ -46,11 +46,11 @@ class ArchiveCollector:
         self._tz = ZoneInfo(timezone)
 
     async def collect_fixtures(self) -> None:
-        """Refresh today's fixtures at most once per 15-minute freshness window."""
+        """Refresh today's fixtures at most once per six-hour freshness window."""
         today = datetime.now(self._tz).date()
         key = f"fixtures:{today.isoformat()}:{self.timezone}"
         if await self.archive.get(
-            kind="collector_state", record_key=key, max_age_seconds=900
+            kind="collector_state", record_key=key, max_age_seconds=21600
         ):
             return
 
