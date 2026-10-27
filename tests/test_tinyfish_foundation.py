@@ -90,3 +90,48 @@ def test_foundation_scheduler_has_no_api_football_jobs():
     jobs = scheduler.get_jobs()
     assert [job.id for job in jobs] == ["archive-tinyfish-foundation"]
     assert jobs[0].trigger.interval.total_seconds() == 86400
+
+
+async def test_republish_cached_profiles_without_search(tmp_path, monkeypatch):
+    database = Database(sqlite_url(tmp_path / "republish.db"))
+    archive = ArchiveService(database)
+    telegram = SimpleNamespace(send_message=AsyncMock())
+    client = SimpleNamespace(get=AsyncMock(side_effect=AssertionError("must not search")))
+    monkeypatch.setattr(
+        foundation,
+        "SEED_ENTITIES",
+        ({"kind": "club", "key": "test-club", "name": "Test Club"},),
+    )
+    await archive.upsert(
+        kind="foundation_club",
+        record_key="test-club",
+        payload={
+            "key": "test-club", "entity_type": "club", "name": "Test Club",
+            "overview": "A saved profile.", "sources": [],
+        },
+        source="tinyfish-search",
+    )
+    collector = foundation.TinyFishFoundationCollector(
+        api_key="test-key", archive=archive, telegram=telegram, channel_id=-100123,
+        client=client, republish_cached=True,
+    )
+    try:
+        await collector.collect_foundation()
+        client.get.assert_not_awaited()
+        telegram.send_message.assert_awaited_once()
+        assert telegram.send_message.await_args.kwargs["chat_id"] == -100123
+    finally:
+        await database.dispose()
+
+
+async def test_publish_digest_reports_telegram_failure():
+    telegram = SimpleNamespace(send_message=AsyncMock(side_effect=RuntimeError("forbidden")))
+    collector = foundation.TinyFishFoundationCollector(
+        api_key="test-key", archive=SimpleNamespace(), telegram=telegram,
+        channel_id=-100123, client=SimpleNamespace(),
+    )
+    result = await collector._publish_digest({
+        "key": "test-club", "entity_type": "club", "name": "Test Club",
+        "overview": "A saved profile.", "sources": [],
+    })
+    assert result is False

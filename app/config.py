@@ -29,6 +29,7 @@ class Settings:
     archive_channel_id: int | None = None
     tinyfish_api_key: str = ""
     archive_foundation_interval_seconds: int = 86400
+    archive_foundation_republish_cached: bool = False
 
 
 def _int_env(name: str, default: int) -> int:
@@ -109,5 +110,8 @@ def get_settings() -> Settings:
         tinyfish_api_key=os.getenv("TINYFISH_API_KEY", "").strip(),
         archive_foundation_interval_seconds=_positive_int_env(
             "ARCHIVE_FOUNDATION_INTERVAL_SECONDS", 86400
+        ),
+        archive_foundation_republish_cached=_bool_env(
+            "ARCHIVE_FOUNDATION_REPUBLISH_CACHED", False
         ),
     )
