@@ -80,8 +80,8 @@ def events(monkeypatch):
     # --- scheduler -----------------------------------------------------
     real_create_scheduler = app_main.create_scheduler
 
-    def spy_create_scheduler(settings):
-        scheduler = real_create_scheduler(settings)
+    def spy_create_scheduler(settings, archive_collector=None):
+        scheduler = real_create_scheduler(settings, archive_collector)
         original = scheduler.shutdown
 
         def shutdown(*args, **kwargs):
