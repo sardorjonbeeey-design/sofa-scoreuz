@@ -42,7 +42,6 @@ class FakeProvider(StubProvider):
 BARCA = make_team(529, "Barcelona", country="Spain", code="BAR")
 BARCA_SC = make_team(1, "Barcelona SC", country="Ecuador")
 BAYERN = make_team(157, "Bayern Munich", country="Germany")
-LEVERKUSEN = make_team(168, "Bayer Leverkusen", country="Germany")
 
 
 async def test_genuine_no_match():
@@ -143,7 +142,6 @@ async def test_most_severe_error_is_reported():
     provider = FakeProvider({
         "bayern": ProviderUnavailableError("down"),
         "bayern munich": ProviderUnavailableError("down"),
-        "bayer leverkusen": ProviderUnavailableError("down"),
     })
 
     result = await TeamResolver(provider).resolve("bayern")
