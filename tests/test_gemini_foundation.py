@@ -51,9 +51,6 @@ def test_extract_json_accepts_fenced_json():
 def test_foundation_scheduler_has_no_api_football_jobs():
     collector = SimpleNamespace(collect_foundation=AsyncMock())
     scheduler = create_scheduler(make_settings(), collector)
-    try:
-        jobs = scheduler.get_jobs()
-        assert [job.id for job in jobs] == ["archive-gemini-foundation"]
-        assert jobs[0].trigger.interval.total_seconds() == 86400
-    finally:
-        scheduler.shutdown(wait=False)
+    jobs = scheduler.get_jobs()
+    assert [job.id for job in jobs] == ["archive-gemini-foundation"]
+    assert jobs[0].trigger.interval.total_seconds() == 86400
