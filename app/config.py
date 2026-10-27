@@ -30,6 +30,7 @@ class Settings:
     archive_live_interval_seconds: int = 1800
     archive_fixtures_interval_seconds: int = 1800
     gemini_api_key: str = ""
+    archive_foundation_interval_seconds: int = 86400
 
 
 def _int_env(name: str, default: int) -> int:
@@ -114,4 +115,7 @@ def get_settings() -> Settings:
             "ARCHIVE_FIXTURES_INTERVAL_SECONDS", 1800
         ),
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
+        archive_foundation_interval_seconds=_positive_int_env(
+            "ARCHIVE_FOUNDATION_INTERVAL_SECONDS", 86400
+        ),
     )
