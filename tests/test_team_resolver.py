@@ -7,6 +7,7 @@ from app.football.errors import (
     ProviderUnavailableError,
 )
 from app.football.team_resolver import (
+    ENGLAND_FLAG,
     ResolveStatus,
     TeamResolver,
     display_name,
@@ -154,13 +155,12 @@ async def test_partial_failure_still_returns_the_teams_that_were_found():
     provider = FakeProvider({
         "bayern": ProviderUnavailableError("blip"),
         "bayern munich": [BAYERN],
-        "bayer leverkusen": [LEVERKUSEN],
     })
 
     result = await TeamResolver(provider).resolve("bayern")
 
     assert result.has_teams
-    assert {t.id for t in result.teams} == {157, 168}
+    assert [t.id for t in result.teams] == [157]
 
 
 async def test_cyrillic_alias_still_works_when_raw_query_is_rejected():
@@ -201,8 +201,7 @@ async def test_alias_ranks_target_first():
 async def test_duplicate_upstream_searches_are_not_sent():
     provider = FakeProvider({"barcelona": [BARCA]})
 
-    # "barcelona" matches the alias list AND the "bar..." shortcut,
-    # but must still be searched only once.
+    # A normal query is searched once; there are no broad prefix shortcuts.
     await TeamResolver(provider).resolve("Barcelona")
 
     assert provider.queries == ["Barcelona"]
@@ -229,3 +228,103 @@ def test_display_names_are_stable_and_distinguish_same_names():
 
     assert display_name(make_team(3, "Team X")) == "Team X"
     assert display_name(make_team(4, "Team Y", code="TMY")) == "Team Y TMY"
+
+
+
+async def test_man_city_does_not_trigger_manchester_united_alias():
+    man_city = make_team(10, "Manchester City", country="England")
+    provider = FakeProvider({"man city": [man_city]})
+
+    result = await TeamResolver(provider).resolve("Man City")
+
+    assert [team.name for team in result.teams] == ["Manchester City"]
+    assert provider.queries == ["Man City"]
+
+
+async def test_psv_does_not_trigger_paris_saint_germain_alias():
+    psv = make_team(11, "PSV Eindhoven", country="Netherlands")
+    provider = FakeProvider({"psv": [psv]})
+
+    result = await TeamResolver(provider).resolve("PSV")
+
+    assert [team.name for team in result.teams] == ["PSV Eindhoven"]
+    assert provider.queries == ["PSV"]
+
+
+async def test_man_united_alias_ranks_manchester_united_first():
+    united = make_team(12, "United FC", country="England")
+    man_united = make_team(13, "Manchester United", country="England")
+    provider = FakeProvider({
+        "man united": [united, man_united],
+        "manchester united": [man_united],
+    })
+
+    result = await TeamResolver(provider).resolve("Man United")
+
+    assert result.teams[0].name == "Manchester United"
+
+
+async def test_bare_united_ranks_manchester_united_first():
+    united = make_team(14, "United FC", country="England")
+    man_united = make_team(15, "Manchester United", country="England")
+    provider = FakeProvider({"united": [united, man_united]})
+
+    result = await TeamResolver(provider).resolve("United")
+
+    assert result.teams[0].name == "Manchester United"
+
+
+async def test_barcelona_b_prefers_reserve_team_over_first_team():
+    first_team = make_team(16, "Barcelona", country="Spain")
+    reserve = make_team(17, "Barcelona B", country="Spain")
+    provider = FakeProvider({"barcelona b": [first_team, reserve]})
+
+    result = await TeamResolver(provider).resolve("Barcelona B")
+
+    assert result.teams[0].name == "Barcelona B"
+    assert provider.queries == ["Barcelona B"]
+
+
+@pytest.mark.parametrize("query", ["Barcelona W", "Barcelona Women"])
+async def test_barcelona_women_queries_prefer_womens_team(query):
+    first_team = make_team(18, "Barcelona", country="Spain")
+    womens_team = make_team(19, "Barcelona Women", country="Spain")
+    provider = FakeProvider({query.lower(): [first_team, womens_team]})
+
+    result = await TeamResolver(provider).resolve(query)
+
+    assert result.teams[0].name == "Barcelona Women"
+    assert provider.queries == [query]
+
+
+async def test_uzbek_latin_paxtakor_alias_uses_provider_spelling():
+    pakhtakor = make_team(20, "Pakhtakor", country="Uzbekistan")
+    provider = FakeProvider({
+        "paxtakor": [],
+        "pakhtakor": [pakhtakor],
+    })
+
+    result = await TeamResolver(provider).resolve("Paxtakor")
+
+    assert [team.name for team in result.teams] == ["Pakhtakor"]
+    assert provider.queries == ["Paxtakor", "Pakhtakor"]
+
+
+async def test_uzbek_cyrillic_alias_finds_pakhtakor():
+    pakhtakor = make_team(21, "Pakhtakor", country="Uzbekistan")
+    provider = FakeProvider({
+        "пахтакор": [],
+        "pakhtakor": [pakhtakor],
+    })
+
+    result = await TeamResolver(provider).resolve("Пахтакор")
+
+    assert [team.name for team in result.teams] == ["Pakhtakor"]
+    assert provider.queries == ["Пахтакор", "Pakhtakor"]
+
+
+def test_england_uses_regional_flag_sequence():
+    england_team = make_team(22, "Liverpool", country="England")
+
+    assert display_name(england_team) == f"Liverpool {ENGLAND_FLAG} England"
+    assert ENGLAND_FLAG != "🏴"
