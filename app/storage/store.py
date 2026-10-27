@@ -45,6 +45,7 @@ class AddFavoriteResult(str, Enum):
 class FavoriteTeamRecord:
     team_id: int
     team_name: str
+    team_type: str = "club"
 
 
 class PreferenceStore(Protocol):
