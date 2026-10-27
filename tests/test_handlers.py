@@ -349,39 +349,43 @@ async def test_duplicate_add_is_reported_and_not_stored_twice(
     assert len(await store.list_favorites(USER)) == 1
 
 
-async def test_limit_comes_from_settings_not_a_hardcoded_three(
+async def test_club_slot_is_singleton_even_if_legacy_limit_is_two(
     store, directory
 ):
     settings = make_settings(free_favorite_slots=2)
-    teams = [make_team(i, f"Team {i}") for i in (1, 2, 3)]
+    teams = [make_team(i, f"Team {i}") for i in (1, 2)]
     await directory.remember(teams)
 
-    for team in teams[:2]:
-        await add_team(
-            make_callback(f"team:add:{team.id}"), store, settings, directory
-        )
-
-    blocked = make_callback("team:add:3")
+    await add_team(make_callback("team:add:1"), store, settings, directory)
+    blocked = make_callback("team:add:2")
     await add_team(blocked, store, settings, directory)
 
-    assert alert_text(blocked) == text("team_limit", "uz", limit=2)
-    assert "2" in alert_text(blocked)
-    assert len(await store.list_favorites(USER)) == 2
+    assert alert_text(blocked) == text("club_slot_full", "uz")
+    assert [item.team_id for item in await store.list_favorites(USER)] == [1]
 
 
-async def test_default_limit_is_three(store, settings, directory):
-    teams = [make_team(i, f"Team {i}") for i in (1, 2, 3, 4)]
+async def test_one_club_and_one_national_team_are_allowed(store, settings, directory):
+    teams = [
+        make_team(1, "Arsenal"),
+        make_team(2, "Uzbekistan", national=True),
+        make_team(3, "Liverpool"),
+        make_team(4, "France", national=True),
+    ]
     await directory.remember(teams)
 
-    for team in teams[:3]:
-        await add_team(
-            make_callback(f"team:add:{team.id}"), store, settings, directory
-        )
+    await add_team(make_callback("team:add:1"), store, settings, directory)
+    await add_team(make_callback("team:add:2"), store, settings, directory)
 
-    blocked = make_callback("team:add:4")
-    await add_team(blocked, store, settings, directory)
+    blocked_club = make_callback("team:add:3")
+    await add_team(blocked_club, store, settings, directory)
+    blocked_national = make_callback("team:add:4")
+    await add_team(blocked_national, store, settings, directory)
 
-    assert alert_text(blocked) == text("team_limit", "uz", limit=3)
+    assert alert_text(blocked_club) == text("club_slot_full", "uz")
+    assert alert_text(blocked_national) == text("national_slot_full", "uz")
+    assert [(item.team_id, item.team_type) for item in await store.list_favorites(USER)] == [
+        (1, "club"), (2, "national")
+    ]
 
 
 async def test_expired_search_fails_safely(store, settings, directory):
@@ -461,7 +465,7 @@ async def test_my_teams_lists_favorites_with_remove_buttons(
 
     shown = shown_text(callback)
     assert "Barcelona" in shown and "Liverpool" in shown
-    assert {"team:rm:1", "team:rm:2", "team:search"} <= set(
+    assert {"team:rm:1", "team:rm:2", "team:search:national"} <= set(
         button_data(callback)
     )
 
