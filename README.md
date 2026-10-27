@@ -77,8 +77,8 @@ Names only. Never commit real values; `.env` is git-ignored.
 | `PORT` | no (default `10000`) | Health-check server port; hosting platforms set this themselves |
 | `SUPPORTER_BOT_TOKEN` | for archive automation | Token of the separate Supporter Bot; keep `BOT_TOKEN` for the main bot |
 | `ARCHIVE_CHANNEL_ID` | for archive automation | Numeric Telegram channel ID where the Supporter Bot can post |
-| `ARCHIVE_LIVE_INTERVAL_SECONDS` | no (default `60`) | How often live match states are checked |
-| `ARCHIVE_FIXTURES_INTERVAL_SECONDS` | no (default `300`) | How often today's fixture archive freshness is checked |
+| `ARCHIVE_LIVE_INTERVAL_SECONDS` | no (default `1800`) | How often live match states are checked |
+| `ARCHIVE_FIXTURES_INTERVAL_SECONDS` | no (default `1800`) | How often today's fixture archive freshness is checked |
 | `TEST_DATABASE_URL` | tests only | Optional empty PostgreSQL database for the PostgreSQL-specific tests (see Tests) |
 
 ## API usage and quota
@@ -185,4 +185,4 @@ API-Football is used initially. Another provider can be added by implementing
 
 Set both `SUPPORTER_BOT_TOKEN` and `ARCHIVE_CHANNEL_ID` in the existing Render service. Add the bot to the channel as an administrator with posting permission. The supporter token is separate from `BOT_TOKEN`; do not overwrite the main bot token.
 
-Archive automation requires the existing `API_FOOTBALL_KEY` and persistent `DATABASE_URL`. The collector stores today's fixtures and live match snapshots in `archive_records`, posts one daily fixture digest, and posts live match updates when score or status changes. It does not yet make the main bot read from the archive, collect squads/standings/news, or use Gemini. `GEMINI_API_KEY` is therefore not required yet; add it only when the separate AI-assisted news research/summarization feature is implemented.
+Archive automation requires the existing `API_FOOTBALL_KEY` and persistent `DATABASE_URL`. The collector stores today's fixtures and live match snapshots in `archive_records`, posts one daily fixture digest, and posts live match updates when score or status changes. Defaults check live matches every 30 minutes and refresh the fixture list no more often than every six hours to limit API usage; tune these intervals to your API-Football plan. It does not yet make the main bot read from the archive, collect squads/standings/news, or use Gemini. `GEMINI_API_KEY` is therefore not required yet; add it only when the separate AI-assisted news research/summarization feature is implemented.
