@@ -165,7 +165,16 @@ class TinyFishFoundationCollector:
         )
 
     async def _research_entity(self, entity: dict[str, str]) -> dict[str, Any] | None:
-        query = f'{entity["name"]} official website history facts football'
+        if entity["kind"] == "club":
+            query = (
+                f'{entity["name"]} official full name country home stadium '
+                'seating capacity current squad market value'
+            )
+        else:
+            query = (
+                f'{entity["name"]} current season fixtures results '
+                'standings league table official'
+            )
         response = await self.client.get(
             TINYFISH_SEARCH_ENDPOINT,
             params={"query": query, "language": "en"},
@@ -230,28 +239,62 @@ class TinyFishFoundationCollector:
         }
 
     async def _publish_digest(self, profile: dict[str, Any]) -> bool:
-        entity_type = "Competition" if profile["entity_type"] == "competition" else "Club / team"
+        """Publish only concise, structured club data; never raw search excerpts."""
+        if profile.get("entity_type") != "club":
+            logger.info("Skipping public post for non-club foundation profile %s.", profile.get("key"))
+            return False
+
+        name = profile.get("official_name") or profile.get("name")
+        country = profile.get("country")
+        flag = profile.get("country_flag") or ""
+        stadium = profile.get("stadium")
+        capacity = profile.get("stadium_capacity")
+        market_value = profile.get("market_value")
+        updated_at = profile.get("market_value_updated_at")
+
+        # Search snippets are not structured facts. Keep them in the database
+        # for internal research, but never publish them as a club profile.
+        if not any((country, stadium, capacity, market_value)):
+            logger.info("Skipping unstructured club profile %s; no useful fields available.", profile.get("key"))
+            return False
+
         lines = [
-            "📚 <b>Football knowledge archive</b>",
-            f"<b>{html.escape(profile['name'])}</b> · {entity_type}",
-            html.escape(profile["overview"][:1800]),
+            "⚽ <b>Club profile</b>",
+            f"<b>{html.escape(str(name or 'Unknown club'))}</b>",
         ]
+        if country:
+            lines.append(f"🌍 Country: {html.escape(str(flag + ' ' + country).strip())}")
+        if stadium:
+            capacity_text = f" · {capacity:,} seats" if isinstance(capacity, int) else ""
+            lines.append(f"🏟 Stadium: {html.escape(str(stadium))}{capacity_text}")
+        elif isinstance(capacity, int):
+            lines.append(f"🏟 Stadium capacity: {capacity:,} seats")
+        if market_value:
+            value_text = str(market_value)
+            if updated_at:
+                value_text += f" (updated {updated_at})"
+            lines.append(f"💶 Squad market value: {html.escape(value_text)}")
+
         source_list = profile.get("sources") or []
-        if source_list:
+        valid_sources = [
+            item for item in source_list[:2]
+            if isinstance(item, dict) and _https_url(item.get("url"))
+        ]
+        if valid_sources:
             lines.append("Sources: " + " · ".join(
-                f'<a href="{html.escape(item["url"], quote=True)}">{html.escape(item["title"])}</a>'
-                for item in source_list[:3]
+                f'<a href="{html.escape(item["url"], quote=True)}">{html.escape(str(item.get("title") or "Source"))}</a>'
+                for item in valid_sources
             ))
-        message = "\n\n".join(lines)
+
         try:
             await self.telegram.send_message(
                 chat_id=self.channel_id,
-                text=message[:3900],
+                text="\\n\\n".join(lines)[:3900],
                 parse_mode="HTML",
                 disable_web_page_preview=True,
             )
-            logger.info("Telegram accepted foundation digest for %s.", profile["key"])
+            logger.info("Telegram accepted structured club profile %s.", profile.get("key"))
             return True
         except Exception:
-            logger.exception("Could not publish TinyFish foundation digest for %s.", profile["key"])
+            logger.exception("Could not publish structured club profile %s.", profile.get("key"))
             return False

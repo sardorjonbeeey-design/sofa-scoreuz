@@ -22,7 +22,7 @@ Matches, standings and team data come from API-Football. League, team and
 country names are shown exactly as the provider returns them (English);
 the interface around them is translated.
 
-News research/summarization and per-user time zone are not built yet. The Supporter Bot builds a foundational archive of club and competition profiles from TinyFish Search results, stores source-linked excerpts in PostgreSQL, and publishes them to Telegram. This collector uses no LLM and does not poll API-Football. It stores search snippets rather than generated summaries; unverified fields remain empty.
+News research/summarization and per-user time zone are not built yet. The archive stores structured fixtures, tournament tables, club profiles and current squads in PostgreSQL as the main bot refreshes those screens. Club profiles include official name, country/flag and stadium/capacity when available; market value is left unknown unless a reliable structured source provides it. TinyFish excerpts are internal research evidence only and are never posted as user-facing football knowledge.
 
 ### Verification status (read this before deploying)
 
@@ -83,7 +83,7 @@ Names only. Never commit real values; `.env` is git-ignored.
 
 ## Archive collection
 
-The Supporter Bot does not automatically call API-Football or Gemini. It uses TinyFish Search to retrieve source-linked web snippets for stable club and competition profiles, writes them to the shared PostgreSQL archive, and publishes only missing or stale profiles. It searches one entity at a time and pauses between requests to stay within the free search rate limit. Search snippets are not AI-verified summaries; source URLs are preserved, and unknown structured fields are left empty. Existing profiles are considered fresh for 90 days; the scheduler checks once per day. API-Football remains a separate source for structured live scores, fixtures, standings and other match data requested by the main bot.
+The main bot archives fixtures/results, tournament tables, and squads when users request those screens; writes happen on cache refresh, so archive collection does not add extra provider calls. Club metadata is stored by team ID with official/provider name, country/flag, stadium and capacity. Market value remains null unless sourced and verified. TinyFish search excerpts may be retained as internal research evidence, but are not published as club facts. Live scores are not archived on every refresh to avoid needless database churn.
 
 ## API usage and quota
 
@@ -189,4 +189,4 @@ API-Football is used initially. Another provider can be added by implementing
 
 Set both `SUPPORTER_BOT_TOKEN` and `ARCHIVE_CHANNEL_ID` in the existing Render service. Add the bot to the channel as an administrator with posting permission. The supporter token is separate from `BOT_TOKEN`; do not overwrite the main bot token.
 
-Archive automation requires `TINYFISH_API_KEY`, `SUPPORTER_BOT_TOKEN`, `ARCHIVE_CHANNEL_ID`, and a persistent `DATABASE_URL`. The collector stores source-linked foundation snippets for clubs and competitions in `archive_records` and publishes one profile per successful search. It does not collect fixtures or live updates, and it does not use Gemini. `API_FOOTBALL_KEY` is separate and remains the main bot's structured football-data provider.
+Archive automation requires `TINYFISH_API_KEY`, `SUPPORTER_BOT_TOKEN`, `ARCHIVE_CHANNEL_ID`, and a persistent `DATABASE_URL`. The archive keeps structured fixture, standings, squad and club-profile records in `archive_records`. TinyFish source snippets are not posted as public knowledge entries. `API_FOOTBALL_KEY` remains the structured football-data provider.

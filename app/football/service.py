@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from datetime import date, datetime, timedelta, tzinfo
 from datetime import timezone as dt_timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -77,8 +77,10 @@ class FootballService:
         timezone: str = DEFAULT_TIMEZONE,
         times: CacheTimes | None = None,
         cache: SnapshotCache | None = None,
+        archive=None,
     ):
         self.provider = provider
+        self.archive = archive
         self.times = times or CacheTimes()
         self.cache = cache if cache is not None else SnapshotCache()
         self.timezone_name, self.tz = _load_timezone(timezone)
@@ -126,12 +128,11 @@ class FootballService:
         day = self.today()
 
         async def load():
-            return tuple(
-                await self.provider.get_fixtures_by_date(
-                    day,
-                    self.timezone_name,
-                )
-            )
+            fixtures = tuple(await self.provider.get_fixtures_by_date(
+                day, self.timezone_name,
+            ))
+            await self._archive_fixtures(fixtures)
+            return fixtures
 
         return await self.cache.get(
             f"fixtures:{day.isoformat()}:{self.timezone_name}",
@@ -155,6 +156,22 @@ class FootballService:
                 league_id,
                 league.current_season,
             )
+            if self.archive is not None:
+                try:
+                    await self.archive.upsert(
+                        kind="tournament_table",
+                        record_key=f"{league_id}:{league.current_season}",
+                        payload={
+                            "league_id": league_id,
+                            "league_name": league.name,
+                            "country": league.country,
+                            "season": league.current_season,
+                            "groups": _json_value(groups),
+                        },
+                        source="api-football",
+                    )
+                except Exception:
+                    logger.exception("Could not archive standings for league %s.", league_id)
 
             return LeagueStandings(
                 league,
@@ -219,7 +236,18 @@ class FootballService:
             getter = getattr(self.provider, "get_team_squad", None)
             if getter is None:
                 raise ProviderUnavailableError("Squad data is unsupported.")
-            return tuple(await getter(team_id))
+            players = tuple(await getter(team_id))
+            if self.archive is not None:
+                try:
+                    await self.archive.upsert(
+                        kind="club_squad",
+                        record_key=str(team_id),
+                        payload={"team_id": team_id, "players": _json_value(players)},
+                        source="api-football",
+                    )
+                except Exception:
+                    logger.exception("Could not archive squad for team %s.", team_id)
+            return players
 
         return await self.cache.get(
             f"team-squad:{team_id}",
@@ -237,7 +265,7 @@ class FootballService:
                 today - window,
                 today + window,
             )
-
+            await self._archive_fixtures(fixtures)
             return split_team_matches(fixtures)
 
         return await self.cache.get(
@@ -246,6 +274,58 @@ class FootballService:
             ttl=self.times.team_fixtures,
             max_stale=self.times.team_fixtures_max_stale,
         )
+
+    async def _archive_fixtures(self, fixtures) -> None:
+        """Persist fixtures only when a cached screen actually fetches them."""
+        if self.archive is None:
+            return
+        for fixture in fixtures:
+            try:
+                await self.archive.archive_fixture(fixture)
+                for team in (fixture.home_team, fixture.away_team):
+                    try:
+                        await self.archive.upsert(
+                            kind="club_profile",
+                            record_key=str(team.id),
+                            payload={
+                                "team_id": team.id,
+                                "official_name": team.name,
+                                "country": team.country,
+                                "country_flag": _country_flag(team.country),
+                                "stadium": team.venue_name,
+                                "stadium_capacity": team.venue_capacity,
+                                "market_value": None,
+                                "market_value_updated_at": None,
+                            },
+                            source="api-football",
+                        )
+                    except Exception:
+                        logger.exception("Could not archive club profile %s.", team.id)
+            except Exception:
+                logger.exception("Could not archive fixture %s.", getattr(fixture, "id", "?"))
+
+
+def _country_flag(country: str | None) -> str | None:
+    flags = {
+        "Spain": "🇪🇸", "England": "🏴", "Italy": "🇮🇹", "Germany": "🇩🇪",
+        "France": "🇫🇷", "Saudi Arabia": "🇸🇦", "Saudi-Arabia": "🇸🇦",
+        "Uzbekistan": "🇺🇿", "Türkiye": "🇹🇷", "Turkey": "🇹🇷",
+        "Netherlands": "🇳🇱", "Portugal": "🇵🇹", "Brazil": "🇧🇷",
+        "Argentina": "🇦🇷", "United States": "🇺🇸", "USA": "🇺🇸",
+    }
+    return flags.get(country or "")
+
+
+def _json_value(value):
+    if is_dataclass(value):
+        return _json_value(asdict(value))
+    if isinstance(value, dict):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
 
 
 def split_team_matches(fixtures: list[Fixture]) -> TeamMatches:

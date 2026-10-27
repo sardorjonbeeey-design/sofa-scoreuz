@@ -85,6 +85,8 @@ async def run_application(
 
         store = await create_store(settings)
         stack.push_async_callback(store.close)
+        archive_database = getattr(store, "database", None)
+        archive_service = ArchiveService(archive_database) if archive_database is not None else None
 
         resolver = None
         service = None
@@ -104,6 +106,7 @@ async def run_application(
                     live=settings.live_cache_ttl,
                     fixtures=settings.fixtures_cache_ttl,
                 ),
+                archive=archive_service,
             )
         else:
             logger.warning(
@@ -124,7 +127,6 @@ async def run_application(
 
         foundation_collector = None
         supporter_bot = None
-        archive_database = getattr(store, "database", None)
         if settings.supporter_bot_token and settings.archive_channel_id is not None:
             if not settings.tinyfish_api_key or archive_database is None:
                 logger.warning(
