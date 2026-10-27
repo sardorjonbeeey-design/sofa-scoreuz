@@ -285,6 +285,4 @@ def _profile_sources(value: Any, grounded: list[dict[str, str]]) -> list[dict[st
             # never trust a URL merely because the model wrote it.
             if url in grounded_by_url and url not in {entry["url"] for entry in result}:
                 result.append({"url": url, "title": title[:200]})
-    if not result:
-        result = grounded[:5]
     return result[:5]
