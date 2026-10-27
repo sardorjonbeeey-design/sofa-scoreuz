@@ -18,7 +18,7 @@ from app.archive.archive_service import ArchiveService
 
 logger = logging.getLogger(__name__)
 
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
 PROFILE_MAX_AGE_SECONDS = 90 * 24 * 60 * 60
 BATCH_SIZE = 5
 
@@ -191,12 +191,29 @@ class GeminiFoundationCollector:
             json={
                 "contents": [{"role": "user", "parts": [{"text": prompt}]}],
                 "tools": [{"google_search": {}}],
-                "generationConfig": {"temperature": 0.2},
+                # Gemini 3 models do not need legacy sampling overrides.
             },
         )
         if response.status_code >= 400:
-            # Never log the request URL, request headers, or API key.
-            logger.warning("Gemini research request failed with HTTP %s.", response.status_code)
+            # Log only the provider's structured error fields, never the URL,
+            # request headers, API key, or submitted prompt.
+            error_info: dict[str, Any] = {}
+            try:
+                payload = response.json()
+                raw_error = payload.get("error") if isinstance(payload, dict) else None
+                if isinstance(raw_error, dict):
+                    error_info = {
+                        "status": str(raw_error.get("status") or "")[:80],
+                        "message": str(raw_error.get("message") or "")[:300],
+                    }
+            except (ValueError, json.JSONDecodeError):
+                pass
+            logger.warning(
+                "Gemini research request failed with HTTP %s (status=%s, message=%s).",
+                response.status_code,
+                error_info.get("status", "unknown"),
+                error_info.get("message", "no provider message"),
+            )
             response.raise_for_status()
         body = response.json()
         candidates = body.get("candidates") or []
