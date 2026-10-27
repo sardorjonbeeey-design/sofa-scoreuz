@@ -248,7 +248,7 @@ def format_team_upcoming(
         )
     else:
         lines.append(text("no_upcoming", language))
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 # --- footers -----------------------------------------------------------
