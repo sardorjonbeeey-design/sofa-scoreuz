@@ -29,6 +29,9 @@ ALIASES = {
     "barselona": ["Barcelona"],
     "barca": ["Barcelona"],
     "barça": ["Barcelona"],
+    "man city": ["Manchester City"],
+    "manchester city": ["Manchester City"],
+    "manchester united": ["Manchester United"],
     "man u": ["Manchester United"],
     "man united": ["Manchester United"],
     "man utd": ["Manchester United"],
@@ -91,6 +94,8 @@ FLAG_EMOJIS = {
     "United States": "🇺🇸",
 }
 
+
+AMBIGUOUS_SINGLE_TERMS = {"united"}
 
 FAMOUS_NAMES = {
     "Barcelona",
@@ -220,12 +225,6 @@ class TeamResolver:
             if normalized_query == alias:
                 search_queries.extend(targets)
 
-        if normalized_query.startswith("man "):
-            search_queries.append("Manchester United")
-
-        if normalized_query.startswith("bar"):
-            search_queries.append("Barcelona")
-
         if normalized_query.startswith("bayer"):
             search_queries.extend(
                 [
@@ -233,9 +232,6 @@ class TeamResolver:
                     "Bayer Leverkusen",
                 ]
             )
-
-        if normalized_query.startswith("ps"):
-            search_queries.append("Paris Saint-Germain")
 
         # Never send the same search twice: every upstream call
         # counts against the provider quota.
@@ -347,8 +343,22 @@ class TeamResolver:
             # Strong country preference.
             country_bonus = country_priority(team)
 
-            # Exact famous-club shortcuts.
-            famous_bonus = 75 if team.name in FAMOUS_NAMES else 0
+            # Famous clubs should win generic one-word searches such as
+            # "United" over obscure exact-name matches. Keep ordinary exact
+            # searches dominant, and only apply this stronger prior when the
+            # query is a genuinely ambiguous standalone token.
+            is_ambiguous_single_term = (
+                normalized_query in AMBIGUOUS_SINGLE_TERMS
+            )
+            if is_ambiguous_single_term and team.name in FAMOUS_NAMES:
+                famous_bonus = 600
+            elif team.name in FAMOUS_NAMES:
+                famous_bonus = 75
+            else:
+                famous_bonus = 0
+
+            if is_ambiguous_single_term and team.name not in FAMOUS_NAMES:
+                match_score = min(match_score, 100)
 
             total_score = (
                 match_score

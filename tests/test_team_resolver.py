@@ -72,6 +72,17 @@ async def test_multiple_candidates_are_ambiguous_and_ranked():
     assert [t.name for t in result.teams] == ["Barcelona", "Barcelona SC"]
 
 
+async def test_barcelona_from_spain_outranks_same_name_brazilian_club():
+    brazil = make_team(700, "Barcelona", country="Brazil")
+    spain = make_team(529, "Barcelona", country="Spain")
+    provider = FakeProvider({"barcelona": [brazil, spain]})
+
+    result = await TeamResolver(provider).resolve("Barcelona")
+
+    assert result.teams[0].id == 529
+    assert result.teams[0].country == "Spain"
+
+
 async def test_ordering_is_stable_across_runs():
     teams = [make_team(i, "Same Name FC", country="Spain")
              for i in (5, 3, 9, 1)]
@@ -201,8 +212,7 @@ async def test_alias_ranks_target_first():
 async def test_duplicate_upstream_searches_are_not_sent():
     provider = FakeProvider({"barcelona": [BARCA]})
 
-    # "barcelona" matches the alias list AND the "bar..." shortcut,
-    # but must still be searched only once.
+    # An exact team name should be searched once without broad prefix shortcuts.
     await TeamResolver(provider).resolve("Barcelona")
 
     assert provider.queries == ["Barcelona"]
@@ -218,6 +228,33 @@ async def test_priority_countries_outrank_obscure_ones():
 
     assert [t.id for t in result.teams] == [2, 1]
 
+
+
+async def test_man_city_does_not_prioritize_manchester_united():
+    man_united = make_team(33, "Manchester United", country="England")
+    man_city = make_team(50, "Manchester City", country="England")
+    provider = FakeProvider({
+        "man city": [man_united],
+        "manchester city": [man_city],
+    })
+
+    result = await TeamResolver(provider).resolve("Man City")
+
+    assert result.teams[0].id == 50
+    assert result.teams[0].name == "Manchester City"
+
+
+async def test_ambiguous_united_prefers_prominent_club():
+    obscure = make_team(1, "United", country="Gabon")
+    man_united = make_team(33, "Manchester United", country="England")
+    provider = FakeProvider({
+        "united": [obscure, man_united],
+    })
+
+    result = await TeamResolver(provider).resolve("United")
+
+    assert result.teams[0].id == 33
+    assert result.teams[0].name == "Manchester United"
 
 def test_display_names_are_stable_and_distinguish_same_names():
     spain = make_team(1, "Barcelona", country="Spain")
