@@ -10,8 +10,8 @@ from datetime import datetime, tzinfo
 from html import escape
 
 from app.football.leagues import (
+    featured_competition_ids,
     featured_country_names,
-    featured_league_ids,
     league_priority,
 )
 from app.football.models import Fixture, StandingsGroup, Team
@@ -107,14 +107,16 @@ def fixture_line(
 # --- scope and grouping -----------------------------------------------
 
 
-def is_top_fixture(fixture: Fixture, favorite_ids: Iterable[int]) -> bool:
-    if {fixture.home_team.id, fixture.away_team.id} & set(favorite_ids):
-        return True
+def is_top_fixture(fixture: Fixture, favorite_ids: Iterable[int] = ()) -> bool:
+    """Whether a match belongs to the bot's fixed editorial coverage.
 
-    if fixture.league_id in featured_league_ids():
-        return True
-
-    return fixture.league_country in featured_country_names()
+    Favorite teams are highlighted within this coverage, but do not expand
+    the global feed to unrelated leagues.
+    """
+    return (
+        fixture.league_id in featured_competition_ids()
+        or fixture.league_country in featured_country_names()
+    )
 
 
 def filter_scope(
@@ -122,12 +124,9 @@ def filter_scope(
     scope_is_top: bool,
     favorite_ids: Iterable[int],
 ) -> list[Fixture]:
-    if not scope_is_top:
-        return list(fixtures)
-
-    favorites = set(favorite_ids)
-
-    return [f for f in fixtures if is_top_fixture(f, favorites)]
+    # Keep the parameter for compatibility with older callback payloads.
+    # Public live/today feeds are always restricted to editorial coverage.
+    return [f for f in fixtures if is_top_fixture(f)]
 
 
 def _league_header(fixture: Fixture) -> str:
