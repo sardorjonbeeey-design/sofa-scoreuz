@@ -8,6 +8,7 @@ from aiohttp import web
 from app.bot.bot import create_bot, create_dispatcher
 from app.archive.archive_service import ArchiveService
 from app.archive.tinyfish_foundation import TinyFishFoundationCollector
+from app.archive.tinyfish_standings import TinyFishStandingsCollector
 from app.cache.cache import MemoryCache
 from app.config import Settings, get_settings
 from app.football.api_football import ApiFootballProvider
@@ -126,7 +127,20 @@ async def run_application(
         )
 
         foundation_collector = None
+        standings_collector = None
         supporter_bot = None
+
+        if settings.tinyfish_api_key and archive_database is not None:
+            standings_collector = TinyFishStandingsCollector(
+                api_key=settings.tinyfish_api_key,
+                archive=ArchiveService(archive_database),
+            )
+            stack.push_async_callback(standings_collector.close)
+        else:
+            logger.warning(
+                "TinyFish standings collection requires TINYFISH_API_KEY "
+                "and a persistent DATABASE_URL. Standings search is disabled."
+            )
         if settings.supporter_bot_token and settings.archive_channel_id is not None:
             if not settings.tinyfish_api_key or archive_database is None:
                 logger.warning(
@@ -152,16 +166,22 @@ async def run_application(
 
         # The Supporter Bot's scheduled archive path uses TinyFish Search only. It does
         # not poll API-Football for fixtures/live matches on startup or a timer.
-        scheduler = create_scheduler(settings, foundation_collector)
+        scheduler = create_scheduler(settings, foundation_collector, standings_collector)
         scheduler.start()
-        if foundation_collector is not None:
-            async def run_initial_foundation_job() -> None:
-                try:
-                    await foundation_collector.collect_foundation()
-                except Exception:
-                    logger.exception("Initial TinyFish foundation archive collection failed.")
+        if foundation_collector is not None or standings_collector is not None:
+            async def run_initial_archive_jobs() -> None:
+                if foundation_collector is not None:
+                    try:
+                        await foundation_collector.collect_foundation()
+                    except Exception:
+                        logger.exception("Initial TinyFish foundation archive collection failed.")
+                if standings_collector is not None:
+                    try:
+                        await standings_collector.collect_standings()
+                    except Exception:
+                        logger.exception("Initial TinyFish standings collection failed.")
 
-            initial_archive_task = asyncio.create_task(run_initial_foundation_job())
+            initial_archive_task = asyncio.create_task(run_initial_archive_jobs())
             stack.callback(initial_archive_task.cancel)
         stack.callback(
             lambda: scheduler.shutdown(wait=False)
