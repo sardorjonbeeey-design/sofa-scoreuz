@@ -193,7 +193,7 @@ class GeminiFoundationCollector:
             json={
                 "contents": [{"role": "user", "parts": [{"text": prompt}]}],
                 "tools": [{"google_search": {}}],
-                "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2},
+                "generationConfig": {"temperature": 0.2},
             },
         )
         if response.status_code >= 400:
