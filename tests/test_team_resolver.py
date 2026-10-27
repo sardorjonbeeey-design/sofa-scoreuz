@@ -327,4 +327,6 @@ def test_england_uses_regional_flag_sequence():
     england_team = make_team(22, "Liverpool", country="England")
 
     assert display_name(england_team) == f"Liverpool {ENGLAND_FLAG} England"
+    assert len(ENGLAND_FLAG) == 7
+    assert ord(ENGLAND_FLAG[0]) == 0x1F3F4
     assert ENGLAND_FLAG != "🏴"
