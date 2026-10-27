@@ -11,10 +11,10 @@ import logging
 import re
 from typing import Any
 
+from aiogram import Bot
 import httpx
 
 from app.archive.archive_service import ArchiveService
-from aiogram import Bot
 
 logger = logging.getLogger(__name__)
 
@@ -90,14 +90,12 @@ class GeminiFoundationCollector:
         archive: ArchiveService,
         telegram: Bot,
         channel_id: int,
-        timezone: str = "Asia/Tashkent",
         client: httpx.AsyncClient | None = None,
     ):
         self.api_key = api_key.strip()
         self.archive = archive
         self.telegram = telegram
         self.channel_id = channel_id
-        self.timezone = timezone
         self.client = client or httpx.AsyncClient(timeout=httpx.Timeout(60.0))
         self._owns_client = client is None
 
