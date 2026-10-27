@@ -203,7 +203,8 @@ class TinyFishStandingsCollector:
             return
 
         logger.info("TinyFish standings collection starting for %s leagues.", len(pending))
-        succeeded = 0
+        saved = 0
+        structured = 0
         for index, league in enumerate(pending):
             try:
                 payload = await self._collect_one(league.id, league.name)
@@ -219,13 +220,20 @@ class TinyFishStandingsCollector:
                         kind="tinyfish_standings", record_key=str(league.id),
                         payload=payload, source="tinyfish-search+html-table",
                     )
-                    succeeded += 1
+                    saved += 1
                     table = payload.get("table") if isinstance(payload.get("table"), dict) else {}
-                    logger.info(
-                        "Archived TinyFish standings for %s: %s rows from %s.",
-                        league.name, len(table.get("rows", [])),
-                        table.get("source_url", "search evidence"),
-                    )
+                    row_count = len(table.get("rows", []))
+                    if table.get("verified_structure") and row_count >= MIN_TABLE_ROWS:
+                        structured += 1
+                        logger.info(
+                            "Archived structured TinyFish standings for %s: %s rows from %s.",
+                            league.name, row_count, table.get("source_url", "unknown source"),
+                        )
+                    else:
+                        logger.warning(
+                            "Archived TinyFish source evidence only for %s; no structured table extracted.",
+                            league.name,
+                        )
                 else:
                     logger.warning("No valid structured standings table found for %s.", league.name)
             except httpx.HTTPStatusError as exc:
@@ -242,7 +250,10 @@ class TinyFishStandingsCollector:
                 logger.exception("Unexpected standings archive failure for %s.", league.name)
             if index + 1 < len(pending):
                 await asyncio.sleep(REQUEST_DELAY_SECONDS)
-        logger.info("TinyFish standings collection finished: %s/%s leagues.", succeeded, len(pending))
+        logger.info(
+            "TinyFish standings collection finished: %s archives saved, %s structured tables extracted, %s leagues attempted.",
+            saved, structured, len(pending),
+        )
 
     async def _collect_one(self, league_id: int, league_name: str) -> dict[str, Any] | None:
         query = (
