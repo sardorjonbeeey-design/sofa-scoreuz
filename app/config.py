@@ -27,8 +27,8 @@ class Settings:
     fixtures_cache_ttl: int = 300
     supporter_bot_token: str = ""
     archive_channel_id: int | None = None
-    archive_live_interval_seconds: int = 1800
-    archive_fixtures_interval_seconds: int = 1800
+    gemini_api_key: str = ""
+    archive_foundation_interval_seconds: int = 86400
 
 
 def _int_env(name: str, default: int) -> int:
@@ -106,10 +106,8 @@ def get_settings() -> Settings:
         ),
         supporter_bot_token=os.getenv("SUPPORTER_BOT_TOKEN", "").strip(),
         archive_channel_id=_optional_int_env("ARCHIVE_CHANNEL_ID"),
-        archive_live_interval_seconds=_positive_int_env(
-            "ARCHIVE_LIVE_INTERVAL_SECONDS", 1800
-        ),
-        archive_fixtures_interval_seconds=_positive_int_env(
-            "ARCHIVE_FIXTURES_INTERVAL_SECONDS", 1800
+        gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
+        archive_foundation_interval_seconds=_positive_int_env(
+            "ARCHIVE_FOUNDATION_INTERVAL_SECONDS", 86400
         ),
     )

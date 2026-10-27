@@ -7,7 +7,7 @@ from aiohttp import web
 
 from app.bot.bot import create_bot, create_dispatcher
 from app.archive.archive_service import ArchiveService
-from app.archive.collector import ArchiveCollector
+from app.archive.gemini_foundation import GeminiFoundationCollector
 from app.cache.cache import MemoryCache
 from app.config import Settings, get_settings
 from app.football.api_football import ApiFootballProvider
@@ -122,46 +122,43 @@ async def run_application(
             service=service,
         )
 
-        archive_collector = None
+        foundation_collector = None
         supporter_bot = None
         archive_database = getattr(store, "database", None)
         if settings.supporter_bot_token and settings.archive_channel_id is not None:
-            if provider is None or archive_database is None:
+            if not settings.gemini_api_key or archive_database is None:
                 logger.warning(
-                    "Supporter Bot archive is configured, but requires API_FOOTBALL_KEY "
-                    "and a persistent DATABASE_URL. Archive automation is disabled."
+                    "Supporter Bot foundation archive requires GEMINI_API_KEY "
+                    "and a persistent DATABASE_URL. Gemini archive automation is disabled."
                 )
             else:
                 supporter_bot = create_bot(settings.supporter_bot_token)
                 stack.push_async_callback(supporter_bot.session.close)
-                archive_collector = ArchiveCollector(
-                    provider=provider,
+                foundation_collector = GeminiFoundationCollector(
+                    api_key=settings.gemini_api_key,
                     archive=ArchiveService(archive_database),
                     telegram=supporter_bot,
                     channel_id=settings.archive_channel_id,
-                    timezone=settings.display_timezone,
                 )
+                stack.push_async_callback(foundation_collector.close)
         elif settings.supporter_bot_token or settings.archive_channel_id is not None:
             logger.warning(
                 "Supporter Bot archive is only partially configured. Set both "
                 "SUPPORTER_BOT_TOKEN and ARCHIVE_CHANNEL_ID to enable it."
             )
 
-        scheduler = create_scheduler(settings, archive_collector)
+        # The Supporter Bot's scheduled archive path is Gemini-only. It does
+        # not poll API-Football for fixtures/live matches on startup or a timer.
+        scheduler = create_scheduler(settings, foundation_collector)
         scheduler.start()
-        if archive_collector is not None:
-            async def run_initial_archive_jobs() -> None:
-                jobs = (
-                    archive_collector.collect_fixtures,
-                    archive_collector.collect_live,
-                )
-                for job in jobs:
-                    try:
-                        await job()
-                    except Exception:
-                        logger.exception("Initial supporter archive collection failed.")
+        if foundation_collector is not None:
+            async def run_initial_foundation_job() -> None:
+                try:
+                    await foundation_collector.collect_foundation()
+                except Exception:
+                    logger.exception("Initial Gemini foundation archive collection failed.")
 
-            initial_archive_task = asyncio.create_task(run_initial_archive_jobs())
+            initial_archive_task = asyncio.create_task(run_initial_foundation_job())
             stack.callback(initial_archive_task.cancel)
         stack.callback(
             lambda: scheduler.shutdown(wait=False)

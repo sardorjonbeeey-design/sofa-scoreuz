@@ -22,7 +22,7 @@ Matches, standings and team data come from API-Football. League, team and
 country names are shown exactly as the provider returns them (English);
 the interface around them is translated.
 
-News research/summarization and per-user time zone are not built yet. The supporter collector archives fixtures and live match states to PostgreSQL and publishes a daily fixture digest plus meaningful live changes when configured.
+News research/summarization and per-user time zone are not built yet. The Supporter Bot builds a foundational archive of club and competition profiles with Gemini grounded by Google Search, stores records in PostgreSQL, and publishes grouped digests to Telegram. Its scheduled archive path does not poll API-Football. Fixture/live collection is intentionally disabled in the Supporter Bot until the provider access issue is resolved and collection is explicitly re-enabled.
 
 ### Verification status (read this before deploying)
 
@@ -77,9 +77,13 @@ Names only. Never commit real values; `.env` is git-ignored.
 | `PORT` | no (default `10000`) | Health-check server port; hosting platforms set this themselves |
 | `SUPPORTER_BOT_TOKEN` | for archive automation | Token of the separate Supporter Bot; keep `BOT_TOKEN` for the main bot |
 | `ARCHIVE_CHANNEL_ID` | for archive automation | Numeric Telegram channel ID where the Supporter Bot can post |
-| `ARCHIVE_LIVE_INTERVAL_SECONDS` | no (default `1800`) | How often live match states are checked |
-| `ARCHIVE_FIXTURES_INTERVAL_SECONDS` | no (default `1800`) | How often today's fixture archive freshness is checked |
+| `GEMINI_API_KEY` | for Gemini archive | Gemini API key used for grounded foundational club and competition research |
+| `ARCHIVE_FOUNDATION_INTERVAL_SECONDS` | no (default `86400`) | How often the Supporter Bot checks whether foundational profiles need refresh |
 | `TEST_DATABASE_URL` | tests only | Optional empty PostgreSQL database for the PostgreSQL-specific tests (see Tests) |
+
+## Archive collection
+
+The Supporter Bot does not automatically call API-Football. It uses Gemini with Google Search grounding to build stable club and competition profiles, writes them to the shared PostgreSQL archive, and publishes only missing or stale profiles. Existing profiles are considered fresh for 90 days; the scheduler checks once per day. API-Football remains the source for live scores, fixtures, standings and other structured match data requested by the main bot, but those user-facing requests are separate from background archive collection.
 
 ## API usage and quota
 
