@@ -261,7 +261,11 @@ class SqlPreferenceStore:
                 if await favorites.exists(user.id, team_id):
                     return AddFavoriteResult.DUPLICATE
 
-                if await favorites.count_for_user(user.id) >= limit:
+                existing = await favorites.list_for_user(user.id)
+                if team_type is not None:
+                    if any(row.team_type == team_type for row in existing):
+                        return AddFavoriteResult.LIMIT_REACHED
+                elif len(existing) >= limit:
                     return AddFavoriteResult.LIMIT_REACHED
 
                 try:
@@ -269,6 +273,7 @@ class SqlPreferenceStore:
                         user.id,
                         team_id,
                         team_name[:TEAM_NAME_MAX_LENGTH],
+                        team_type or "club",
                     )
                 except IntegrityError:
                     # Lost a race with an identical request.
