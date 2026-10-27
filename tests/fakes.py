@@ -149,3 +149,66 @@ class FakeFootball(StubProvider):
     async def get_standings(self, league_id, season):
         self._hit("standings")
         return list(self.tables.get(league_id, []))
+
+
+# --- archive test double ---------------------------------------------------
+
+from datetime import timezone as _timezone  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+
+def standings_archive_payload(league_id=39, league_name="Premier League", teams=None):
+    """A source-attributed structured table for tests; never used in production."""
+    teams = teams or ["Arsenal", "Chelsea", "Liverpool", "City", "United", "Spurs"]
+    rows = []
+    for position, team in enumerate(teams, start=1):
+        rows.append({
+            "position": position, "team": team, "played": 10, "won": 7,
+            "drawn": 2, "lost": 1, "goals_for": 20, "goals_against": 8,
+            "goal_difference": 12, "points": 23 - position + 1,
+        })
+    return {
+        "league_id": league_id,
+        "league_name": league_name,
+        "queried_at": "2026-10-27T20:00:00+00:00",
+        "parser_version": 2,
+        "results": [{
+            "title": f"{league_name} Table",
+            "url": "https://www.espn.com/soccer/standings",
+            "snippet": "Current league standings",
+        }],
+        "table": {
+            "league_id": league_id,
+            "league_name": league_name,
+            "season": 2026,
+            "rows": rows,
+            "source_url": "https://www.espn.com/soccer/standings",
+            "source_title": f"{league_name} Table",
+            "retrieved_at": "2026-10-27T20:00:00+00:00",
+            "verified_structure": True,
+        },
+        "data_type": "structured_standings",
+    }
+
+
+class FakeArchive:
+    """Small in-memory archive for UI/service tests."""
+    def __init__(self, payloads=None):
+        self.records = {
+            ("tinyfish_standings", str(key)): value
+            for key, value in (payloads or {}).items()
+        }
+        self.reads = 0
+        self.writes = 0
+
+    async def get(self, *, kind, record_key, max_age_seconds=None):
+        self.reads += 1
+        payload = self.records.get((kind, str(record_key)))
+        if payload is None:
+            return None
+        return SimpleNamespace(payload=payload, fetched_at=datetime.now(_timezone.utc))
+
+    async def upsert(self, *, kind, record_key, payload, source="test"):
+        self.writes += 1
+        self.records[(kind, str(record_key))] = payload
+        return SimpleNamespace(payload=payload, fetched_at=datetime.now(_timezone.utc))
