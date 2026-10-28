@@ -37,6 +37,41 @@ ALIASES = {
     "psg": ["Paris Saint-Germain"],
     "psj": ["Paris Saint-Germain"],
     "псж": ["Paris Saint-Germain"],
+    # Uzbek club names and common Latin/Cyrillic spellings. Targets use
+    # provider-facing names so users can search naturally in Uzbek.
+    "paxtakor": ["Pakhtakor Tashkent"],
+    "pakhtakor": ["Pakhtakor Tashkent"],
+    "paxtakor toshkent": ["Pakhtakor Tashkent"],
+    "pakhtakor tashkent": ["Pakhtakor Tashkent"],
+    "пахтакор": ["Pakhtakor Tashkent"],
+    "пахтакор ташкент": ["Pakhtakor Tashkent"],
+    "пахтакор тошкент": ["Pakhtakor Tashkent"],
+    "bunyodkor": ["Bunyodkor"],
+    "бунёдкор": ["Bunyodkor"],
+    "бунёдкор ташкент": ["Bunyodkor"],
+    "nasaf": ["Nasaf"],
+    "nasaf qarshi": ["Nasaf"],
+    "насаф": ["Nasaf"],
+    "насаф карши": ["Nasaf"],
+    "neftchi": ["Neftchi"],
+    "neftchi fergana": ["Neftchi"],
+    "neftchi fargona": ["Neftchi"],
+    "нефтчи": ["Neftchi"],
+    "нефтчи фаргона": ["Neftchi"],
+    "нефтчи фарғона": ["Neftchi"],
+    "navbahor": ["Navbahor"],
+    "navbahor namangan": ["Navbahor"],
+    "навбахор": ["Navbahor"],
+    "навбаҳор": ["Navbahor"],
+    "навбахор наманган": ["Navbahor"],
+    "olmaliq": ["AGMK"],
+    "olmalik": ["AGMK"],
+    "агмк": ["AGMK"],
+    "алмалык": ["AGMK"],
+    "sogdiana": ["Sogdiana"],
+    "sogdiyona": ["Sogdiana"],
+    "согдиана": ["Sogdiana"],
+    "сўғдиёна": ["Sogdiana"],
 }
 
 
@@ -77,7 +112,9 @@ COUNTRY_CODES = {
 
 FLAG_EMOJIS = {
     "Uzbekistan": "🇺🇿",
-    "England": "🏴",
+    # Use the widely supported UK flag; England subdivision flags render as a
+    # plain black flag on some Telegram clients/fonts.
+    "England": "🇬🇧",
     "Spain": "🇪🇸",
     "Italy": "🇮🇹",
     "Germany": "🇩🇪",
@@ -220,22 +257,9 @@ class TeamResolver:
             if normalized_query == alias:
                 search_queries.extend(targets)
 
-        if normalized_query.startswith("man "):
-            search_queries.append("Manchester United")
-
-        if normalized_query.startswith("bar"):
-            search_queries.append("Barcelona")
-
-        if normalized_query.startswith("bayer"):
-            search_queries.extend(
-                [
-                    "Bayern Munich",
-                    "Bayer Leverkusen",
-                ]
-            )
-
-        if normalized_query.startswith("ps"):
-            search_queries.append("Paris Saint-Germain")
+        # Only explicit aliases expand into provider-facing search terms.
+        # Prefix guesses such as "bar*" or "ps*" produce false positives
+        # and spend API quota on unrelated searches.
 
         # Never send the same search twice: every upstream call
         # counts against the provider quota.

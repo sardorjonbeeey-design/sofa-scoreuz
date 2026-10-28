@@ -365,8 +365,8 @@ async def test_league_table_shows_standings(tap):
 
     body, _ = edited(callback)
 
-    assert "Premier League" in body and "Arsenal" in body and "Chelsea" in body
-    assert "Pts" in body and "Season 2026" in body
+    assert "Premier League" in body and "ARS" in body and "CHE" in body
+    assert "PTS" in body
     assert "menu:standings" in buttons(callback)
 
 
@@ -415,7 +415,7 @@ async def test_standings_are_read_from_archive_without_api_football_calls(tap, w
     first = edited(await tap("lg:39"))[0]
     second = edited(await tap("lg:39"))[0]
 
-    assert "Arsenal" in first and "Arsenal" in second
+    assert "ARS" in first and "ARS" in second
     assert world.calls.get("standings", 0) == 0
     assert world.calls.get("leagues", 0) == 0
 
