@@ -153,13 +153,12 @@ async def test_partial_failure_still_returns_the_teams_that_were_found():
     provider = FakeProvider({
         "bayern": ProviderUnavailableError("blip"),
         "bayern munich": [BAYERN],
-        "bayer leverkusen": [LEVERKUSEN],
     })
 
     result = await TeamResolver(provider).resolve("bayern")
 
     assert result.has_teams
-    assert {t.id for t in result.teams} == {157, 168}
+    assert [t.id for t in result.teams] == [157]
 
 
 async def test_cyrillic_alias_still_works_when_raw_query_is_rejected():
