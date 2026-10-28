@@ -142,7 +142,6 @@ async def test_most_severe_error_is_reported():
     provider = FakeProvider({
         "bayern": ProviderUnavailableError("down"),
         "bayern munich": ProviderUnavailableError("down"),
-        "bayer leverkusen": ProviderUnavailableError("down"),
     })
 
     result = await TeamResolver(provider).resolve("bayern")
@@ -201,11 +200,54 @@ async def test_alias_ranks_target_first():
 async def test_duplicate_upstream_searches_are_not_sent():
     provider = FakeProvider({"barcelona": [BARCA]})
 
-    # "barcelona" matches the alias list AND the "bar..." shortcut,
-    # but must still be searched only once.
+    # An exact alias must not cause the same provider query to be sent twice.
     await TeamResolver(provider).resolve("Barcelona")
 
     assert provider.queries == ["Barcelona"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["barbecue", "man city", "psv"],
+)
+async def test_unrelated_prefixes_do_not_trigger_famous_club_searches(query):
+    provider = FakeProvider({query: []})
+
+    result = await TeamResolver(provider).resolve(query)
+
+    assert result.status is ResolveStatus.NO_MATCH
+    assert provider.queries == [query]
+
+
+@pytest.mark.parametrize(
+    "query, provider_query, team_name",
+    [
+        ("Paxtakor", "Pakhtakor Tashkent", "Pakhtakor Tashkent"),
+        ("Pakhtakor", "Pakhtakor Tashkent", "Pakhtakor Tashkent"),
+        ("Пахтакор", "Pakhtakor Tashkent", "Pakhtakor Tashkent"),
+        ("Bunyodkor", "Bunyodkor", "Bunyodkor"),
+        ("Бунёдкор", "Bunyodkor", "Bunyodkor"),
+        ("Nasaf Qarshi", "Nasaf", "Nasaf"),
+        ("Насаф", "Nasaf", "Nasaf"),
+        ("Neftchi Fergana", "Neftchi", "Neftchi"),
+        ("Навбахор", "Navbahor", "Navbahor"),
+        ("Olmaliq", "AGMK", "AGMK"),
+        ("Сўғдиёна", "Sogdiana", "Sogdiana"),
+    ],
+)
+async def test_uzbek_team_aliases_resolve_to_provider_names(
+    query, provider_query, team_name
+):
+    team = make_team(900, team_name, country="Uzbekistan")
+    provider = FakeProvider({
+        query.lower(): ProviderRequestError("search must be alphanumeric"),
+        provider_query.lower(): [team],
+    })
+
+    result = await TeamResolver(provider).resolve(query)
+
+    assert result.has_teams
+    assert result.teams[0].name == team_name
 
 
 async def test_priority_countries_outrank_obscure_ones():
