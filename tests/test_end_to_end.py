@@ -147,7 +147,8 @@ async def test_todays_matches_use_tashkent_time_and_date_parameters(app, api):
 
 async def test_standings_use_the_archive_without_api_football_requests(app, api):
     (edit,) = await app.press("lg:39")
-    assert "Arsenal" in edit.text and "Season 2026" in edit.text
+    # Premier League standings intentionally use the compact # CLUB PTS format.
+    assert "ARS" in edit.text and "PTS" in edit.text
 
     for update_id in range(2, 12):
         await app.press("lg:39", update_id)
