@@ -82,6 +82,12 @@ def from_whisper(url: str, timestamps: bool):
         cmd = ["yt-dlp", "-f", "bestaudio/best", "--no-playlist", "-o", f"{tmp}/a.%(ext)s", url]
         if PROXY_URL:
             cmd[1:1] = ["--proxy", PROXY_URL]
+        cookies = os.environ.get("YT_COOKIES", "").strip()
+        if cookies:
+            cpath = f"{tmp}/cookies.txt"
+            with open(cpath, "w") as f:
+                f.write(cookies.replace("\\t", "\t").replace("\\n", "\n") + "\n")
+            cmd[1:1] = ["--cookies", cpath]
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
         src = glob.glob(f"{tmp}/a.*")
         if p.returncode != 0 or not src:
