@@ -1,0 +1,4 @@
+mcp>=1.9,<2
+youtube-transcript-api>=1.2
+yt-dlp
+httpx
