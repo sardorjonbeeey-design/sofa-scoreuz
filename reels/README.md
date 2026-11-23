@@ -7,11 +7,25 @@ flat illustration in the middle, narration subtitles at the bottom.
 ## Render
 
 ```bash
-pip install pillow fonttools
+pip install pillow fonttools numpy scipy
 python3 reels/render_reel.py reels/videos/01_yolgizlik.json
 ```
 
 Output: `reels/out/<id>.mp4` — 720x1280, 30 fps, H.264 + AAC.
+
+## Motion
+
+The illustration is split by colour into a base plate plus sprites, so the
+scene animates rather than just zooming:
+
+- the drawing is laid down top-to-bottom on a slanted soft edge (`reveal_duration`)
+- stars twinkle on their own periods, lit windows flicker and a few switch
+  off and back on during the clip
+- the moon drifts; sky objects parallax against the room as the camera pushes in
+- a warm glow behind the drawing breathes onto the wall around the window
+- the verse is written on right-to-left, the marker stroke swipes across the
+  keyword at `highlight_at`
+- captions arrive word by word with a `stagger`, each word rising into place
 
 ## Spec format
 

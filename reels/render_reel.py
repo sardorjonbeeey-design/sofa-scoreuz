@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Render an Uzbek Islamic reel (9:16, re.mind.ai-style) from a JSON spec.
 
-Pipeline: cream canvas -> static header (Arabic verse + Uzbek translation +
-surah reference) -> centred flat illustration with a slow push-in -> narration
-subtitles revealed phrase by phrase in sync with the voiceover -> H.264 MP4.
+The illustration is not treated as a flat picture. It is taken apart by colour
+into a base plate plus sprites (moon, stars, lit windows), so the scene can
+actually move: the drawing is laid down stroke-wise, the moon drifts, stars
+twinkle, windows switch on and off through the night, and the camera pushes in
+with the sky parallaxing against the room. Text behaves the same way -- the
+verse is written on right-to-left, the marker stroke is swiped across the
+keyword, and captions arrive word by word in time with the voiceover.
 
 Usage:
     python3 reels/render_reel.py reels/videos/01_yolgizlik.json
@@ -12,12 +16,16 @@ Usage:
 from __future__ import annotations
 
 import json
+import math
 import os
+import random
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from scipy import ndimage
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -29,7 +37,7 @@ AMIRI = os.path.join(ROOT, "fonts", "Amiri-{}.ttf")
 
 
 # --------------------------------------------------------------------------- #
-# helpers
+# small helpers
 # --------------------------------------------------------------------------- #
 def hex2rgb(value: str) -> tuple[int, int, int]:
     value = value.lstrip("#")
@@ -44,26 +52,39 @@ def amiri(style: str, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(AMIRI.format(style), size)
 
 
+def clamp01(v: float) -> float:
+    return 0.0 if v < 0.0 else 1.0 if v > 1.0 else v
+
+
 def ease_out(t: float) -> float:
-    t = min(max(t, 0.0), 1.0)
+    t = clamp01(t)
     return 1.0 - (1.0 - t) ** 3
 
 
 def ease_in_out(t: float) -> float:
-    t = min(max(t, 0.0), 1.0)
+    t = clamp01(t)
     return 3 * t * t - 2 * t * t * t
-
-
-def ar_len(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> float:
-    return draw.textlength(text, font=font, direction="rtl", language="ar")
 
 
 def rounded(draw: ImageDraw.ImageDraw, box, radius: int, fill) -> None:
     draw.rounded_rectangle(box, radius=radius, fill=fill)
 
 
+def scale_alpha(layer: Image.Image, alpha: float) -> Image.Image:
+    """Return a copy of an RGBA layer with its alpha scaled."""
+    if alpha >= 0.999:
+        return layer
+    out = layer.copy()
+    out.putalpha(out.getchannel("A").point(lambda v: int(v * alpha)))
+    return out
+
+
+def paste_rgba(dst: Image.Image, layer: Image.Image, pos=(0, 0)) -> None:
+    dst.paste(layer.convert("RGB"), pos, layer.getchannel("A"))
+
+
 # --------------------------------------------------------------------------- #
-# spec
+# palette
 # --------------------------------------------------------------------------- #
 @dataclass
 class Palette:
@@ -88,167 +109,320 @@ def load_palette(spec: dict) -> Palette:
 
 
 # --------------------------------------------------------------------------- #
-# layers
+# illustration: cut out, take apart, animate
 # --------------------------------------------------------------------------- #
-def make_background(pal: Palette) -> Image.Image:
-    """Flat cream paper. Grain is added last, over the whole frame."""
-    return Image.new("RGB", (W, H), pal.bg)
+@dataclass
+class Sprite:
+    img: Image.Image          # RGBA patch
+    x: int                    # position in plate coordinates
+    y: int
+    kind: str                 # moon | star | light
+    phase: float = 0.0
+    schedule: list = field(default_factory=list)   # for lights: (t_off, t_on)
 
 
-def make_grain() -> Image.Image:
-    """Soft monochrome noise, blended over the finished frame so the
-    illustration and the page share exactly one paper texture."""
-    noise = Image.effect_noise((W, H), 11).convert("L")
-    noise = noise.filter(ImageFilter.GaussianBlur(0.4))
-    return Image.merge("RGB", (noise, noise, noise))
+@dataclass
+class Scene:
+    plate: Image.Image        # base drawing, sprites removed
+    sprites: list
+    glow: Image.Image         # warm halo over the window (may be None)
+    sky_box: tuple
+    size: tuple
 
 
-def make_header(spec: dict, pal: Palette, with_highlight: bool) -> Image.Image:
-    """Arabic verse + ornaments + Uzbek translation + surah reference."""
-    head = spec["header"]
-    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
-    cx = W // 2
-
-    verse = head["arabic"]
-    keyword = head.get("arabic_highlight", "")
-    f_verse = amiri("Bold", head.get("arabic_size", 50))
-    f_orn = amiri("Regular", head.get("arabic_size", 50) + 6)
-
-    y_verse = head.get("y", 150)
-    total = ar_len(d, verse, f_verse)
-    left = cx - total / 2
-
-    # highlight sits behind the final (logical) word, which renders left-most
-    if with_highlight and keyword:
-        kw = ar_len(d, keyword, f_verse)
-        rounded(
-            d,
-            (left - 9, y_verse - 30, left + kw + 9, y_verse + 24),
-            10,
-            pal.highlight + (235,),
-        )
-
-    d.text(
-        (cx, y_verse),
-        verse,
-        font=f_verse,
-        fill=pal.ink + (255,),
-        anchor="mm",
-        direction="rtl",
-        language="ar",
-    )
-
-    # ornamental verse brackets
-    gap = total / 2 + 26
-    for ch, x in (("﴿", cx - gap), ("﴾", cx + gap)):
-        d.text((x, y_verse), ch, font=f_orn, fill=pal.faint + (255,), anchor="mm")
-
-    # Uzbek translation
-    f_tr = inter("Italic", head.get("translation_size", 23))
-    d.text(
-        (cx, y_verse + 52),
-        head["translation"],
-        font=f_tr,
-        fill=pal.muted + (255,),
-        anchor="mm",
-    )
-
-    # surah reference
-    f_ref = inter("Medium", 16)
-    d.text(
-        (cx, y_verse + 84),
-        head["reference"].upper(),
-        font=f_ref,
-        fill=pal.faint + (255,),
-        anchor="mm",
-    )
-    return layer
-
-
-def make_illustration(spec: dict, pal: Palette) -> Image.Image:
-    """Lift the drawing off its own paper so it sits directly on the page.
-
-    The generated art comes on a cream field with a soft vignette. Pixels close
-    to that field become transparent on a soft ramp, which drops the vignette
-    with it; what is left is the line work, trimmed and centred in the box.
-    """
-    import numpy as np
-
-    src = Image.open(os.path.join(ROOT, spec["illustration"])).convert("RGB")
+def cutout(path: str, ramp) -> Image.Image:
+    """Lift the drawing off the cream field it was generated on."""
+    src = Image.open(path).convert("RGB")
     arr = np.asarray(src).astype(np.int16)
-
-    # the source's own paper colour, from its corners
     corners = np.concatenate(
         [arr[:24, :24].reshape(-1, 3), arr[:24, -24:].reshape(-1, 3),
          arr[-24:, :24].reshape(-1, 3), arr[-24:, -24:].reshape(-1, 3)]
     )
     paper = np.median(corners, axis=0)
-
     delta = np.abs(arr - paper).max(axis=2).astype(np.float32)
-    lo, hi = spec.get("cutout_ramp", [12.0, 28.0])
+    lo, hi = ramp
     alpha = np.clip((delta - lo) / (hi - lo), 0.0, 1.0)
+    out = Image.fromarray(np.dstack([np.asarray(src), (alpha * 255).astype(np.uint8)]), "RGBA")
+    out.putalpha(out.getchannel("A").filter(ImageFilter.GaussianBlur(0.6)))
+    bbox = out.getchannel("A").point(lambda v: 255 if v > 24 else 0).getbbox()
+    return out.crop(bbox) if bbox else out
 
-    cut = Image.fromarray(np.dstack([np.asarray(src), (alpha * 255).astype(np.uint8)]), "RGBA")
-    cut.putalpha(cut.getchannel("A").filter(ImageFilter.GaussianBlur(0.6)))
 
-    bbox = cut.getchannel("A").point(lambda v: 255 if v > 24 else 0).getbbox()
-    if bbox:
-        cut = cut.crop(bbox)
+def build_scene(spec: dict) -> Scene:
+    """Split the drawing into a plate plus animatable light sprites."""
+    art = cutout(os.path.join(ROOT, spec["illustration"]), spec.get("cutout_ramp", [12.0, 28.0]))
 
-    box = spec.get("illustration_box", [40, 300, 680, 940])
+    box = spec.get("illustration_box", [60, 310, 660, 950])
     bw, bh = box[2] - box[0], box[3] - box[1]
-    k = min(bw / cut.width, bh / cut.height)
-    cut = cut.resize((max(1, int(cut.width * k)), max(1, int(cut.height * k))), Image.LANCZOS)
+    over = spec.get("zoom", [1.0, 1.06])[1]          # render at full push-in size
+    k = min(bw * over / art.width, bh * over / art.height)
+    art = art.resize((max(1, int(art.width * k)), max(1, int(art.height * k))), Image.LANCZOS)
 
-    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    layer.paste(cut, (box[0] + (bw - cut.width) // 2, box[1] + (bh - cut.height) // 2), cut)
-    return layer
+    rgb = np.asarray(art.convert("RGB")).astype(np.int16)
+    alpha = np.asarray(art.getchannel("A"))
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    lum = 0.299 * r + 0.587 * g + 0.114 * b
+
+    sky = (b > r + 10) & (lum < 150) & (alpha > 120)
+    warm = (r > 190) & (g > 150) & (b < 170) & ((r - b) > 55) & (alpha > 120)
+
+    sky_box = (0, 0, art.width, art.height)
+    if sky.any():
+        ys, xs = np.where(sky)
+        sky_box = (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()))
+
+    plate_px = np.array(art)
+    sprites = []
+
+    labels, count = ndimage.label(warm)
+    blobs = ndimage.find_objects(labels)
+    areas = [int((labels[sl] == i + 1).sum()) for i, sl in enumerate(blobs)]
+    # thresholds are relative to the plate, so they survive any output size
+    plate_area = art.width * art.height
+    min_area = max(10, int(plate_area * 3e-5))
+    ranked = sorted(areas, reverse=True)
+    runner_up = ranked[1] if len(ranked) > 1 else 0
+    moon_idx = int(np.argmax(areas)) if areas and ranked[0] > 2.5 * runner_up else -1
+
+    rng = random.Random(spec.get("seed", 7))
+
+    for i, sl in enumerate(blobs):
+        y0, y1 = sl[0].start, sl[0].stop
+        x0, x1 = sl[1].start, sl[1].stop
+        h, w = y1 - y0, x1 - x0
+        area = areas[i]
+        if area < min_area:
+            continue
+
+        if i == moon_idx:
+            kind = "moon"
+        elif 0.75 < w / max(h, 1) < 1.35:
+            kind = "star"
+        else:
+            kind = "light"
+
+        pad = 6
+        px0, py0 = max(0, x0 - pad), max(0, y0 - pad)
+        px1, py1 = min(art.width, x1 + pad), min(art.height, y1 + pad)
+
+        blob = (labels[py0:py1, px0:px1] == i + 1)
+        patch = np.array(art)[py0:py1, px0:px1].copy()
+        patch_a = patch[..., 3].astype(np.float32)
+        patch_a *= ndimage.gaussian_filter(blob.astype(np.float32), 1.1)
+        patch[..., 3] = np.clip(patch_a, 0, 255).astype(np.uint8)
+
+        # heal the plate: fill the blob with the colour ringing it
+        ring = ndimage.binary_dilation(blob, iterations=4) & ~blob
+        region = plate_px[py0:py1, px0:px1]
+        if ring.any():
+            fill = np.median(region[ring], axis=0).astype(np.uint8)
+            region[blob] = fill
+            plate_px[py0:py1, px0:px1] = region
+
+        sprite = Sprite(
+            img=Image.fromarray(patch, "RGBA"),
+            x=px0,
+            y=py0,
+            kind=kind,
+            phase=rng.random(),
+        )
+        if kind == "light":
+            # most windows stay lit; a few go dark and come back during the clip
+            if rng.random() < 0.5:
+                off = rng.uniform(1.8, float(spec["duration"]) - 5.5)
+                sprite.schedule = [(off, off + rng.uniform(1.6, 3.4))]
+        sprites.append(sprite)
+
+    plate = Image.fromarray(plate_px, "RGBA")
+
+    # warm halo over the window, for the breathing night glow
+    glow = None
+    if sky.any():
+        gx0, gy0, gx1, gy1 = sky_box
+        glow = Image.new("RGBA", art.size, (0, 0, 0, 0))
+        gd = ImageDraw.Draw(glow)
+        gd.ellipse(
+            (gx0 - 40, gy0 - 40, gx1 + 40, gy1 + 40),
+            fill=hex2rgb(spec.get("glow_color", "#E8C675")) + (70,),
+        )
+        glow = glow.filter(ImageFilter.GaussianBlur(38))
+
+    return Scene(plate=plate, sprites=sprites, glow=glow, sky_box=sky_box, size=art.size)
 
 
-def make_caption(line: dict, pal: Palette, spec: dict) -> Image.Image:
-    """One narration phrase, centred, with optional yellow keyword marker."""
-    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
+def sprite_state(sp: Sprite, t: float):
+    """alpha, dx, dy for one sprite at time t."""
+    if sp.kind == "star":
+        tw = math.sin(2 * math.pi * (t / (2.1 + 1.4 * sp.phase) + sp.phase))
+        return 0.22 + 0.78 * clamp01(0.5 + 0.5 * tw), 0, 0
+    if sp.kind == "moon":
+        bob = math.sin(2 * math.pi * (t / 11.0 + sp.phase)) * 3.0
+        return 1.0, 0, int(round(-bob))
+    a = 1.0
+    for off, on in sp.schedule:
+        if off <= t < on:
+            a = 1.0 - ease_in_out(min((t - off) / 0.35, 1.0))
+        elif on <= t < on + 0.5:
+            a = ease_in_out((t - on) / 0.5)
+    flicker = 1.0 + 0.04 * math.sin(2 * math.pi * (t / 1.7 + sp.phase))
+    return clamp01(a * flicker), 0, 0
+
+
+def render_scene(scene: Scene, t: float, reveal: float, parallax: float,
+                 glow_amt: float) -> Image.Image:
+    """One frame of the illustration, before the camera move."""
+    # the glow sits behind the drawing, so it spills onto the wall around the
+    # window instead of fogging the night sky
+    if scene.glow is not None and glow_amt > 0:
+        frame = Image.alpha_composite(scale_alpha(scene.glow, glow_amt), scene.plate)
+    else:
+        frame = scene.plate.copy()
+
+    cx = (scene.sky_box[0] + scene.sky_box[2]) / 2
+    cy = (scene.sky_box[1] + scene.sky_box[3]) / 2
+
+    for sp in scene.sprites:
+        a, dx, dy = sprite_state(sp, t)
+        if a <= 0.01:
+            continue
+        # sky objects sit deeper, so they drift against the room as we push in
+        px = int(round(sp.x + dx + (sp.x + sp.img.width / 2 - cx) * parallax))
+        py = int(round(sp.y + dy + (sp.y + sp.img.height / 2 - cy) * parallax))
+        patch = scale_alpha(sp.img, a)
+        frame.paste(patch.convert("RGB"), (px, py), patch.getchannel("A"))
+
+    if reveal < 0.999:
+        h, w = frame.height, frame.width
+        edge = reveal * (h + 150) - 75
+        rows = np.clip((edge - np.arange(h, dtype=np.float32)[:, None]) / 95.0, 0.0, 1.0)
+        # a slight slant, so the drawing reads as being laid down by hand
+        mask = np.clip(rows - np.linspace(0.0, 0.14, w, dtype=np.float32)[None, :], 0.0, 1.0)
+        a = (np.asarray(frame.getchannel("A")).astype(np.float32) * mask).astype(np.uint8)
+        frame.putalpha(Image.fromarray(a, "L"))
+
+    return frame
+
+
+# --------------------------------------------------------------------------- #
+# text layers
+# --------------------------------------------------------------------------- #
+def ink_span(layer: Image.Image):
+    a = np.asarray(layer.getchannel("A"))
+    cols = np.where((a > 16).any(axis=0))[0]
+    return (int(cols.min()), int(cols.max())) if len(cols) else (0, 0)
+
+
+def wipe(layer: Image.Image, frac: float, direction: str, feather: float = 46.0) -> Image.Image:
+    """Reveal a layer across its own ink, left-to-right or right-to-left."""
+    if frac >= 0.999:
+        return layer
+    if frac <= 0.001:
+        return Image.new("RGBA", layer.size, (0, 0, 0, 0))
+    x0, x1 = ink_span(layer)
+    span = (x1 - x0) + 2 * feather
+    xs = np.arange(layer.width, dtype=np.float32)
+    if direction == "rtl":
+        edge = (x1 + feather) - frac * span
+        mask = np.clip((xs - edge) / feather, 0.0, 1.0)
+    else:
+        edge = (x0 - feather) + frac * span
+        mask = np.clip((edge - xs) / feather, 0.0, 1.0)
+    out = layer.copy()
+    a = (np.asarray(out.getchannel("A")).astype(np.float32) * mask[None, :]).astype(np.uint8)
+    out.putalpha(Image.fromarray(a, "L"))
+    return out
+
+
+def make_header(spec: dict, pal: Palette):
+    head = spec["header"]
     cx = W // 2
-    y0 = spec.get("caption_y", 1046)
+    y_verse = head.get("y", 152)
+    size = head.get("arabic_size", 50)
+    f_verse = amiri("Bold", size)
+    f_orn = amiri("Regular", size + 6)
 
+    probe = ImageDraw.Draw(Image.new("RGBA", (W, H)))
+    verse = head["arabic"]
+    total = probe.textlength(verse, font=f_verse, direction="rtl", language="ar")
+    left = cx - total / 2
+
+    marker = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    kw = head.get("arabic_highlight", "")
+    if kw:
+        kwl = probe.textlength(kw, font=f_verse, direction="rtl", language="ar")
+        rounded(
+            ImageDraw.Draw(marker),
+            (left - 9, y_verse - 30, left + kwl + 9, y_verse + 24),
+            10,
+            pal.highlight + (235,),
+        )
+
+    text = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(text).text(
+        (cx, y_verse), verse, font=f_verse, fill=pal.ink + (255,),
+        anchor="mm", direction="rtl", language="ar",
+    )
+
+    orn = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    do = ImageDraw.Draw(orn)
+    gap = total / 2 + 26
+    for ch, x in (("﴿", cx - gap), ("﴾", cx + gap)):
+        do.text((x, y_verse), ch, font=f_orn, fill=pal.faint + (255,), anchor="mm")
+
+    trans = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(trans).text(
+        (cx, y_verse + 52), head["translation"],
+        font=inter("Italic", head.get("translation_size", 22)),
+        fill=pal.muted + (255,), anchor="mm",
+    )
+
+    ref = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(ref).text(
+        (cx, y_verse + 84), head["reference"].upper(),
+        font=inter("Medium", 16), fill=pal.faint + (255,), anchor="mm",
+    )
+
+    return {"marker": marker, "verse": text, "orn": orn, "trans": trans, "ref": ref}
+
+
+def draw_caption(frame: Image.Image, line: dict, pal: Palette, spec: dict,
+                 t: float, alpha: float) -> None:
+    """Captions arrive word by word, each one rising into place."""
     size = line.get("size", 34)
     f = inter("SemiBold", size)
     f_ar = amiri("Regular", size + 6)
     lead = size + 14
+    y0 = spec.get("caption_y", 1046)
     marks = set(line.get("highlight", []))
+    stagger = line.get("stagger", 0.055)
 
     rows = line["text"].split("\n")
-    block_h = lead * len(rows)
-    y = y0 - block_h / 2 + lead / 2
+    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    cx = W // 2
+    y = y0 - lead * len(rows) / 2 + lead / 2
 
+    index = 0
     for row in rows:
         if line.get("script") == "ar":
-            d.text(
-                (cx, y),
-                row,
-                font=f_ar,
-                fill=pal.ink + (255,),
-                anchor="mm",
-                direction="rtl",
-                language="ar",
-            )
+            d.text((cx, y), row, font=f_ar, fill=pal.ink + (255,),
+                   anchor="mm", direction="rtl", language="ar")
             y += lead
             continue
 
         words = row.split(" ")
         advances = [d.textlength(w + " ", font=f) for w in words]
         inks = [d.textlength(w, font=f) for w in words]
-        x0 = cx - sum(advances) / 2
-
-        flags = [w.strip("\u00ab\u00bb.,:;\u2014?!\u2026") in marks for w in words]
-        xs, x = [], x0
-        for a in advances:
+        xs, x = [], cx - sum(advances) / 2
+        for adv in advances:
             xs.append(x)
-            x += a
+            x += adv
 
-        # one marker stroke per run of adjacent highlighted words
+        flags = [w.strip("«».,:;—?!…") in marks for w in words]
+        appear = [ease_out((t - line["start"] - n * stagger) / 0.26)
+                  for n in range(index, index + len(words))]
+
+        # marker strokes swipe in under their run of words
         i = 0
         while i < len(words):
             if not flags[i]:
@@ -257,53 +431,42 @@ def make_caption(line: dict, pal: Palette, spec: dict) -> Image.Image:
             j = i
             while j + 1 < len(words) and flags[j + 1]:
                 j += 1
-            rounded(
-                d,
-                (xs[i] - 6, y - size * 0.64, xs[j] + inks[j] + 6, y + size * 0.54),
-                8,
-                pal.highlight + (225,),
-            )
+            swipe = ease_out((t - line["start"] - (index + j) * stagger - 0.16) / 0.30)
+            if swipe > 0.01:
+                x_a, x_b = xs[i] - 6, xs[j] + inks[j] + 6
+                rounded(d, (x_a, y - size * 0.64, x_a + (x_b - x_a) * swipe, y + size * 0.54),
+                        8, pal.highlight + (225,))
             i = j + 1
 
-        for word, x in zip(words, xs):
-            d.text((x, y), word, font=f, fill=pal.ink + (255,), anchor="lm")
+        for n, (word, x) in enumerate(zip(words, xs)):
+            a = appear[n]
+            if a <= 0.01:
+                continue
+            rise = (1.0 - a) * 9
+            d.text((x, y + rise), word, font=f, fill=pal.ink + (int(255 * a),), anchor="lm")
+        index += len(words)
         y += lead
-    return layer
+
+    paste_rgba(frame, scale_alpha(layer, alpha))
 
 
 def make_footer(spec: dict, pal: Palette) -> Image.Image:
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     text = spec.get("footer", "").strip()
-    if not text:
-        return layer
-    d = ImageDraw.Draw(layer)
-    d.text(
-        (W // 2, 1196),
-        text,
-        font=inter("Medium", 17),
-        fill=pal.faint + (150,),
-        anchor="mm",
-    )
+    if text:
+        ImageDraw.Draw(layer).text(
+            (W // 2, 1196), text, font=inter("Medium", 17),
+            fill=pal.faint + (150,), anchor="mm",
+        )
     return layer
 
 
 # --------------------------------------------------------------------------- #
-# compositing
+# render
 # --------------------------------------------------------------------------- #
-def fade_alpha(layer: Image.Image, alpha: float) -> Image.Image:
-    if alpha >= 0.999:
-        return layer
-    out = layer.copy()
-    a = out.getchannel("A").point(lambda v: int(v * alpha))
-    out.putalpha(a)
-    return out
-
-
 def segment_alpha(t: float, start: float, end: float, fade: float = 0.22) -> float:
-    if t < start - fade or t > end + fade:
+    if t < start or t > end + fade:
         return 0.0
-    if t < start:
-        return ease_out((t - (start - fade)) / fade)
     if t > end:
         return 1.0 - ease_out((t - end) / fade)
     return 1.0
@@ -317,21 +480,22 @@ def render(spec_path: str) -> str:
     duration = float(spec["duration"])
     frames = int(round(duration * FPS))
 
-    bg = make_background(pal)
-    grain = make_grain()
+    bg = Image.new("RGB", (W, H), pal.bg)
+    noise = Image.effect_noise((W, H), 11).convert("L").filter(ImageFilter.GaussianBlur(0.4))
+    grain = Image.merge("RGB", (noise, noise, noise))
     grain_mix = float(spec.get("grain", 0.03))
     blank = Image.blend(bg, grain, grain_mix) if grain_mix > 0 else bg.copy()
-    header_plain = make_header(spec, pal, with_highlight=False)
-    header_hl = make_header(spec, pal, with_highlight=True)
-    illu = make_illustration(spec, pal)
-    footer = make_footer(spec, pal)
-    captions = [(c, make_caption(c, pal, spec)) for c in spec["captions"]]
 
-    box = spec.get("illustration_box", [40, 300, 680, 940])
-    zoom_from = spec.get("zoom", [1.0, 1.055])[0]
-    zoom_to = spec.get("zoom", [1.0, 1.055])[1]
+    scene = build_scene(spec)
+    header = make_header(spec, pal)
+    footer = make_footer(spec, pal)
+
+    box = spec.get("illustration_box", [60, 310, 660, 950])
+    bw, bh = box[2] - box[0], box[3] - box[1]
+    z0, z1 = spec.get("zoom", [1.0, 1.06])
     hl_at = spec["header"].get("highlight_at", 6.3)
     hl_dur = spec["header"].get("highlight_duration", 0.5)
+    reveal_dur = float(spec.get("reveal_duration", 1.5))
 
     out_path = os.path.join(ROOT, spec["output"])
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -339,9 +503,10 @@ def render(spec_path: str) -> str:
 
     cmd = [
         "ffmpeg", "-y", "-v", "error",
-        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", "%dx%d" % (W, H), "-r", str(FPS), "-i", "-",
         "-i", audio,
-        "-filter_complex", f"[1:a]apad,atrim=0:{duration},afade=t=out:st={duration-0.45}:d=0.45[a]",
+        "-filter_complex",
+        "[1:a]apad,atrim=0:%s,afade=t=out:st=%s:d=0.45[a]" % (duration, duration - 0.45),
         "-map", "0:v", "-map", "[a]",
         "-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "19",
         "-pix_fmt", "yuv420p", "-r", str(FPS),
@@ -350,54 +515,53 @@ def render(spec_path: str) -> str:
         out_path,
     ]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    assert proc.stdin is not None
 
-    bw, bh = box[2] - box[0], box[3] - box[1]
     for i in range(frames):
         t = i / FPS
         frame = bg.copy()
 
-        # illustration: slow push-in, fades up first
-        k = zoom_from + (zoom_to - zoom_from) * ease_in_out(t / duration)
-        nw, nh = int(bw * k), int(bh * k)
-        scaled = illu.crop((box[0], box[1], box[2], box[3])).resize((nw, nh), Image.LANCZOS)
-        shifted = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        shifted.paste(scaled, (box[0] - (nw - bw) // 2, box[1] - (nh - bh) // 2))
-        frame.paste(
-            fade_alpha(shifted, ease_out(t / 0.9)).convert("RGB"),
-            (0, 0),
-            fade_alpha(shifted, ease_out(t / 0.9)).getchannel("A"),
-        )
+        # --- illustration -------------------------------------------------- #
+        reveal = ease_in_out(t / reveal_dur)
+        glow_amt = max(ease_out((t - 0.8) / 1.6), 0.0) * (0.78 + 0.22 * math.sin(2 * math.pi * t / 6.5))
+        parallax = -0.05 * ease_in_out(t / duration)
+        art = render_scene(scene, t, reveal, parallax, max(glow_amt, 0.0))
 
-        # header
-        head_a = ease_out((t - 0.15) / 0.9)
-        if head_a > 0:
-            layer = header_hl if t >= hl_at + hl_dur else header_plain
-            if hl_at <= t < hl_at + hl_dur:
-                mix = ease_out((t - hl_at) / hl_dur)
-                layer = Image.alpha_composite(header_plain, fade_alpha(header_hl, mix))
-            layer = fade_alpha(layer, head_a)
-            frame.paste(layer.convert("RGB"), (0, 0), layer.getchannel("A"))
+        k = z0 + (z1 - z0) * ease_in_out(t / duration)
+        tw, th = max(1, int(bw * k)), max(1, int(bh * k))
+        drift = math.sin(2 * math.pi * t / 17.0) * 3.0
+        art = art.resize((tw, th), Image.LANCZOS)
+        paste_rgba(frame, art,
+                   (box[0] + (bw - tw) // 2 + int(round(drift)), box[1] + (bh - th) // 2))
 
-        # footer
-        f_a = ease_out((t - 0.6) / 1.2)
-        if f_a > 0:
-            layer = fade_alpha(footer, f_a)
-            frame.paste(layer.convert("RGB"), (0, 0), layer.getchannel("A"))
+        # --- header -------------------------------------------------------- #
+        verse_w = ease_in_out((t - 0.25) / 1.15)
+        if verse_w > 0.001:
+            if t >= hl_at:
+                paste_rgba(frame, wipe(header["marker"], ease_out((t - hl_at) / hl_dur), "ltr", 28.0))
+            paste_rgba(frame, wipe(header["verse"], verse_w, "rtl"))
+            a_orn = ease_out((t - 1.0) / 0.7)
+            if a_orn > 0.004:
+                paste_rgba(frame, scale_alpha(header["orn"], a_orn))
+        a_tr = ease_out((t - 1.15) / 0.8)
+        if a_tr > 0.004:
+            paste_rgba(frame, scale_alpha(header["trans"], a_tr))
+        a_rf = ease_out((t - 1.45) / 0.8)
+        if a_rf > 0.004:
+            paste_rgba(frame, scale_alpha(header["ref"], a_rf))
 
-        # captions
-        for cap, layer in captions:
+        a_ft = ease_out((t - 1.8) / 1.2)
+        if a_ft > 0.004:
+            paste_rgba(frame, scale_alpha(footer, a_ft))
+
+        # --- captions ------------------------------------------------------ #
+        for cap in spec["captions"]:
             a = segment_alpha(t, cap["start"], cap["end"])
-            if a <= 0.003:
-                continue
-            faded = fade_alpha(layer, a)
-            frame.paste(faded.convert("RGB"), (0, 0), faded.getchannel("A"))
+            if a > 0.004:
+                draw_caption(frame, cap, pal, spec, t, a)
 
-        # one shared paper grain over everything
+        # --- paper + open/close -------------------------------------------- #
         if grain_mix > 0:
             frame = Image.blend(frame, grain, grain_mix)
-
-        # open from / close to cream
         if t < 0.35:
             frame = Image.blend(blank, frame, ease_out(t / 0.35))
         if t > duration - 0.5:
