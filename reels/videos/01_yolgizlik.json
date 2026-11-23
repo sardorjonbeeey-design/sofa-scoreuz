@@ -1,0 +1,43 @@
+{
+  "id": "01_yolgizlik",
+  "topic": "Yolg'izlik / loneliness",
+  "duration": 20.0,
+  "output": "out/01_yolgizlik.mp4",
+  "audio": "assets/01/voice.mp3",
+  "illustration": "assets/01/illustration.png",
+  "illustration_box": [60, 310, 660, 950],
+  "zoom": [1.0, 1.06],
+  "caption_y": 1046,
+  "footer": "",
+  "palette": {
+    "bg": "#F5EBDB",
+    "ink": "#3B352C",
+    "muted": "#7A7265",
+    "faint": "#A79E90",
+    "highlight": "#F2D98B",
+    "gold": "#C9A227"
+  },
+  "header": {
+    "y": 152,
+    "arabic": "إِنَّ مَعَ الْعُسْرِ يُسْرًا",
+    "arabic_highlight": "يُسْرًا",
+    "arabic_size": 50,
+    "highlight_at": 6.3,
+    "highlight_duration": 0.5,
+    "translation": "«Albatta, qiyinchilik bilan birga osonlik bor»",
+    "translation_size": 22,
+    "reference": "Inshiroh surasi · 94:5-6"
+  },
+  "captions": [
+    { "start": 0.10, "end": 2.06, "text": "Hech kim tushunmayapti\ndeb oʻylayapsanmi?" },
+    { "start": 2.47, "end": 3.95, "text": "Yolgʻiz his qilyapsanmi?", "highlight": ["Yolgʻiz"] },
+    { "start": 4.46, "end": 5.68, "text": "Alloh taolo aytdi:" },
+    { "start": 6.08, "end": 9.23, "text": "«Qiyinchilik bilan birga,\nalbatta, osonlik bor»", "highlight": ["osonlik"] },
+    { "start": 9.68, "end": 11.76, "text": "Bu oyat ikki marta\ntakrorlandi." },
+    { "start": 12.12, "end": 12.90, "text": "Ikki marta.", "highlight": ["Ikki", "marta"] },
+    { "start": 13.31, "end": 14.51, "text": "Chunki U biladi —" },
+    { "start": 14.84, "end": 16.93, "text": "baʼzan bir marta\nyetarli emas." },
+    { "start": 17.32, "end": 17.99, "text": "Sabr qil.", "highlight": ["Sabr"] },
+    { "start": 18.37, "end": 19.70, "text": "Osonlik yaqin.", "highlight": ["yaqin"] }
+  ]
+}
