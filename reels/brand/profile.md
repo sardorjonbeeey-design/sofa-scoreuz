@@ -41,9 +41,10 @@ shuning uchun eng muhimi yuqorida.
 
 | Fayl | Nima | Baho |
 |------|------|------|
-| `avatar_a_window.png` | Tungi deraza, oy va yulduzlar | **Tavsiya.** Seriya tilining oʻzi — har bir reelda deraza/sahna bor. Toʻq rang lentada ajralib turadi. |
+| `avatar_a_window.png` | Tungi deraza, oy va yulduzlar | Seriya tilining oʻzi — har bir reelda deraza/sahna bor. Toʻq rang lentada ajralib turadi. |
 | `avatar_b_moon.png` | Oltin yarim oy va yulduz | Chiroyli, lekin minglab islomiy akkauntlarda shunday. Esda qolmaydi. |
-| `avatar_c_type.png` | سَكِينَة yozuvi va yarim oy | Nafis, lekin 56 px da oʻqilmaydi va akkaunt nima haqida ekanini aytmaydi. |
+| `avatar_c_type.png` | سكينة — faqat soʻz, Amiri Bold | **Tanlangan.** Harakatlar va yarim oy olib tashlandi; soʻz ink boʻyicha markazlangan, eni kanvasning 57% i, shuning uchun doira kesimida nafas bor. 34 px da ham oʻqiladi. |
+| `avatar_c_regular.png` | Oʻsha, Amiri Regular | Nafisroq, lekin kichik oʻlchamda ingichka. Zaxira. |
 
 Hammasi 1080x1080, krem fon (#F5EBDB), doira kesimiga marj bilan.
 
