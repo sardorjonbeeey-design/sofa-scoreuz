@@ -29,8 +29,22 @@ from scipy import ndimage
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
-W, H = 720, 1280
+DESIGN_W, DESIGN_H = 720, 1280     # the layout is authored at this size
+SC = 1.0                           # output scale; 1.5 gives a 1080x1920 master
+W, H = DESIGN_W, DESIGN_H
 FPS = 30
+
+
+def set_scale(scale: float) -> None:
+    """Scale the whole layout. Everything geometric goes through px()."""
+    global SC, W, H
+    SC = float(scale)
+    W, H = int(round(DESIGN_W * SC)), int(round(DESIGN_H * SC))
+
+
+def px(v: float) -> float:
+    """A design-space length in output pixels."""
+    return v * SC
 
 INTER = "/usr/share/fonts/opentype/inter/Inter-{}.otf"
 AMIRI = os.path.join(ROOT, "fonts", "Amiri-{}.ttf")
@@ -44,12 +58,12 @@ def hex2rgb(value: str) -> tuple[int, int, int]:
     return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
 
 
-def inter(style: str, size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(INTER.format(style), size)
+def inter(style: str, size: float) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(INTER.format(style), max(1, int(round(px(size)))))
 
 
-def amiri(style: str, size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(AMIRI.format(style), size)
+def amiri(style: str, size: float) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(AMIRI.format(style), max(1, int(round(px(size)))))
 
 
 def clamp01(v: float) -> float:
@@ -152,7 +166,7 @@ def build_scene(spec: dict) -> Scene:
     """Split the drawing into a plate plus animatable light sprites."""
     art = cutout(os.path.join(ROOT, spec["illustration"]), spec.get("cutout_ramp", [12.0, 28.0]))
 
-    box = spec.get("illustration_box", [60, 310, 660, 950])
+    box = [px(v) for v in spec.get("illustration_box", [60, 310, 660, 950])]
     bw, bh = box[2] - box[0], box[3] - box[1]
     over = spec.get("zoom", [1.0, 1.06])[1]          # render at full push-in size
     k = min(bw * over / art.width, bh * over / art.height)
@@ -242,10 +256,10 @@ def build_scene(spec: dict) -> Scene:
         glow = Image.new("RGBA", art.size, (0, 0, 0, 0))
         gd = ImageDraw.Draw(glow)
         gd.ellipse(
-            (gx0 - 40, gy0 - 40, gx1 + 40, gy1 + 40),
+            (gx0 - px(40), gy0 - px(40), gx1 + px(40), gy1 + px(40)),
             fill=hex2rgb(spec.get("glow_color", "#E8C675")) + (70,),
         )
-        glow = glow.filter(ImageFilter.GaussianBlur(38))
+        glow = glow.filter(ImageFilter.GaussianBlur(px(38)))
 
     return Scene(plate=plate, sprites=sprites, glow=glow, sky_box=sky_box, size=art.size)
 
@@ -256,7 +270,7 @@ def sprite_state(sp: Sprite, t: float):
         tw = math.sin(2 * math.pi * (t / (2.1 + 1.4 * sp.phase) + sp.phase))
         return 0.22 + 0.78 * clamp01(0.5 + 0.5 * tw), 0, 0
     if sp.kind == "moon":
-        bob = math.sin(2 * math.pi * (t / 11.0 + sp.phase)) * 3.0
+        bob = math.sin(2 * math.pi * (t / 11.0 + sp.phase)) * px(3.0)
         return 1.0, 0, int(round(-bob))
     a = 1.0
     for off, on in sp.schedule:
@@ -286,15 +300,15 @@ def render_scene(scene: Scene, t: float, reveal: float, parallax: float,
         if a <= 0.01:
             continue
         # sky objects sit deeper, so they drift against the room as we push in
-        px = int(round(sp.x + dx + (sp.x + sp.img.width / 2 - cx) * parallax))
-        py = int(round(sp.y + dy + (sp.y + sp.img.height / 2 - cy) * parallax))
+        ox = int(round(sp.x + dx + (sp.x + sp.img.width / 2 - cx) * parallax))
+        oy = int(round(sp.y + dy + (sp.y + sp.img.height / 2 - cy) * parallax))
         patch = scale_alpha(sp.img, a)
-        frame.paste(patch.convert("RGB"), (px, py), patch.getchannel("A"))
+        frame.paste(patch.convert("RGB"), (ox, oy), patch.getchannel("A"))
 
     if reveal < 0.999:
         h, w = frame.height, frame.width
-        edge = reveal * (h + 150) - 75
-        rows = np.clip((edge - np.arange(h, dtype=np.float32)[:, None]) / 95.0, 0.0, 1.0)
+        edge = reveal * (h + px(150)) - px(75)
+        rows = np.clip((edge - np.arange(h, dtype=np.float32)[:, None]) / px(95.0), 0.0, 1.0)
         # a slight slant, so the drawing reads as being laid down by hand
         mask = np.clip(rows - np.linspace(0.0, 0.14, w, dtype=np.float32)[None, :], 0.0, 1.0)
         a = (np.asarray(frame.getchannel("A")).astype(np.float32) * mask).astype(np.uint8)
@@ -318,6 +332,7 @@ def wipe(layer: Image.Image, frac: float, direction: str, feather: float = 46.0)
         return layer
     if frac <= 0.001:
         return Image.new("RGBA", layer.size, (0, 0, 0, 0))
+    feather = px(feather)
     x0, x1 = ink_span(layer)
     span = (x1 - x0) + 2 * feather
     xs = np.arange(layer.width, dtype=np.float32)
@@ -336,7 +351,7 @@ def wipe(layer: Image.Image, frac: float, direction: str, feather: float = 46.0)
 def make_header(spec: dict, pal: Palette):
     head = spec["header"]
     cx = W // 2
-    y_verse = head.get("y", 152)
+    y_verse = px(head.get("y", 152))
     size = head.get("arabic_size", 50)
     f_verse = amiri("Bold", size)
     f_orn = amiri("Regular", size + 6)
@@ -352,8 +367,8 @@ def make_header(spec: dict, pal: Palette):
         kwl = probe.textlength(kw, font=f_verse, direction="rtl", language="ar")
         rounded(
             ImageDraw.Draw(marker),
-            (left - 9, y_verse - 30, left + kwl + 9, y_verse + 24),
-            10,
+            (left - px(9), y_verse - px(30), left + kwl + px(9), y_verse + px(24)),
+            px(10),
             pal.highlight + (235,),
         )
 
@@ -365,20 +380,20 @@ def make_header(spec: dict, pal: Palette):
 
     orn = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     do = ImageDraw.Draw(orn)
-    gap = total / 2 + 26
+    gap = total / 2 + px(26)
     for ch, x in (("﴿", cx - gap), ("﴾", cx + gap)):
         do.text((x, y_verse), ch, font=f_orn, fill=pal.faint + (255,), anchor="mm")
 
     trans = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ImageDraw.Draw(trans).text(
-        (cx, y_verse + 52), head["translation"],
+        (cx, y_verse + px(52)), head["translation"],
         font=inter("Italic", head.get("translation_size", 22)),
         fill=pal.muted + (255,), anchor="mm",
     )
 
     ref = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ImageDraw.Draw(ref).text(
-        (cx, y_verse + 84), head["reference"].upper(),
+        (cx, y_verse + px(84)), head["reference"].upper(),
         font=inter("Medium", 16), fill=pal.faint + (255,), anchor="mm",
     )
 
@@ -391,8 +406,8 @@ def draw_caption(frame: Image.Image, line: dict, pal: Palette, spec: dict,
     size = line.get("size", 34)
     f = inter("SemiBold", size)
     f_ar = amiri("Regular", size + 6)
-    lead = size + 14
-    y0 = spec.get("caption_y", 1046)
+    lead = px(size + 14)
+    y0 = px(spec.get("caption_y", 1046))
     marks = set(line.get("highlight", []))
     stagger = line.get("stagger", 0.055)
 
@@ -433,16 +448,16 @@ def draw_caption(frame: Image.Image, line: dict, pal: Palette, spec: dict,
                 j += 1
             swipe = ease_out((t - line["start"] - (index + j) * stagger - 0.16) / 0.30)
             if swipe > 0.01:
-                x_a, x_b = xs[i] - 6, xs[j] + inks[j] + 6
-                rounded(d, (x_a, y - size * 0.64, x_a + (x_b - x_a) * swipe, y + size * 0.54),
-                        8, pal.highlight + (225,))
+                x_a, x_b = xs[i] - px(6), xs[j] + inks[j] + px(6)
+                rounded(d, (x_a, y - px(size * 0.64), x_a + (x_b - x_a) * swipe,
+                            y + px(size * 0.54)), px(8), pal.highlight + (225,))
             i = j + 1
 
         for n, (word, x) in enumerate(zip(words, xs)):
             a = appear[n]
             if a <= 0.01:
                 continue
-            rise = (1.0 - a) * 9
+            rise = (1.0 - a) * px(9)
             d.text((x, y + rise), word, font=f, fill=pal.ink + (int(255 * a),), anchor="lm")
         index += len(words)
         y += lead
@@ -455,7 +470,7 @@ def make_footer(spec: dict, pal: Palette) -> Image.Image:
     text = spec.get("footer", "").strip()
     if text:
         ImageDraw.Draw(layer).text(
-            (W // 2, 1196), text, font=inter("Medium", 17),
+            (W // 2, px(1196)), text, font=inter("Medium", 17),
             fill=pal.faint + (150,), anchor="mm",
         )
     return layer
@@ -472,7 +487,8 @@ def segment_alpha(t: float, start: float, end: float, fade: float = 0.22) -> flo
     return 1.0
 
 
-def render(spec_path: str) -> str:
+def render(spec_path: str, scale: float = 1.0, crf: int = 19, suffix: str = "") -> str:
+    set_scale(scale)
     with open(spec_path, encoding="utf-8") as fh:
         spec = json.load(fh)
 
@@ -490,7 +506,7 @@ def render(spec_path: str) -> str:
     header = make_header(spec, pal)
     footer = make_footer(spec, pal)
 
-    box = spec.get("illustration_box", [60, 310, 660, 950])
+    box = [int(round(px(v))) for v in spec.get("illustration_box", [60, 310, 660, 950])]
     bw, bh = box[2] - box[0], box[3] - box[1]
     z0, z1 = spec.get("zoom", [1.0, 1.06])
     hl_at = spec["header"].get("highlight_at", 6.3)
@@ -498,6 +514,9 @@ def render(spec_path: str) -> str:
     reveal_dur = float(spec.get("reveal_duration", 1.5))
 
     out_path = os.path.join(ROOT, spec["output"])
+    if suffix:
+        stem, ext = os.path.splitext(out_path)
+        out_path = stem + suffix + ext
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     audio = os.path.join(ROOT, spec["audio"])
 
@@ -508,7 +527,7 @@ def render(spec_path: str) -> str:
         "-filter_complex",
         "[1:a]apad,atrim=0:%s,afade=t=out:st=%s:d=0.45[a]" % (duration, duration - 0.45),
         "-map", "0:v", "-map", "[a]",
-        "-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "19",
+        "-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", str(crf),
         "-pix_fmt", "yuv420p", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
         "-movflags", "+faststart", "-shortest",
@@ -528,7 +547,7 @@ def render(spec_path: str) -> str:
 
         k = z0 + (z1 - z0) * ease_in_out(t / duration)
         tw, th = max(1, int(bw * k)), max(1, int(bh * k))
-        drift = math.sin(2 * math.pi * t / 17.0) * 3.0
+        drift = math.sin(2 * math.pi * t / 17.0) * px(3.0)
         art = art.resize((tw, th), Image.LANCZOS)
         paste_rgba(frame, art,
                    (box[0] + (bw - tw) // 2 + int(round(drift)), box[1] + (bh - th) // 2))
@@ -576,6 +595,13 @@ def render(spec_path: str) -> str:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: render_reel.py <spec.json>")
-    print(render(sys.argv[1]))
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Render a reel from a JSON spec.")
+    ap.add_argument("spec")
+    ap.add_argument("--scale", type=float, default=1.0,
+                    help="1.0 = 720x1280 (default), 1.5 = 1080x1920 master")
+    ap.add_argument("--crf", type=int, default=19, help="x264 quality, lower is better")
+    ap.add_argument("--suffix", default="", help="appended to the output file name")
+    args = ap.parse_args()
+    print(render(args.spec, scale=args.scale, crf=args.crf, suffix=args.suffix))

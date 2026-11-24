@@ -13,6 +13,20 @@ python3 reels/render_reel.py reels/videos/01_yolgizlik.json
 
 Output: `reels/out/<id>.mp4` — 720x1280, 30 fps, H.264 + AAC.
 
+The layout is authored at 720x1280 and every length goes through `px()`, so
+any scale renders natively — text and line work are redrawn at the output
+size, never upscaled. For the Instagram master:
+
+```bash
+python3 reels/render_reel.py reels/videos/01_yolgizlik.json \
+    --scale 1.5 --crf 16 --suffix _1080
+```
+
+| File | Size | Use |
+|------|------|-----|
+| `<id>.mp4` | 720x1280, CRF 19 | quick check, messaging |
+| `<id>_1080.mp4` | 1080x1920, CRF 16 | **upload this** — Instagram's native reel size |
+
 ## Motion
 
 The illustration is split by colour into a base plate plus sprites, so the
