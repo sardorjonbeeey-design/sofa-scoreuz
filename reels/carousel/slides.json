@@ -1,0 +1,68 @@
+{
+  "size": [
+    1080,
+    1350
+  ],
+  "slides": [
+    {
+      "n": 1,
+      "file": "01.png",
+      "bg": "#F5EBDB",
+      "accent": "#F2D98B",
+      "headline": "Men kimman?",
+      "body": "Sakinat ortida kim bor",
+      "illustration": "01.png"
+    },
+    {
+      "n": 2,
+      "file": "02.png",
+      "bg": "#F2E9DC",
+      "accent": "#F0C487",
+      "headline": "Yanvarda 20 yoshga\nkiraman.",
+      "body": "Hali juda yoshman.\nLekin boshlash uchun kutishning hojati yoʻq edi.",
+      "illustration": "02.png"
+    },
+    {
+      "n": 3,
+      "file": "03.png",
+      "bg": "#E9EDE4",
+      "accent": "#BBD6A2",
+      "headline": "Nega yuzim\nkoʻrinmaydi?",
+      "body": "Chunki bu sahifa men haqimda emas.\nOyat haqida.",
+      "illustration": "03.png"
+    },
+    {
+      "n": 4,
+      "file": "04.png",
+      "bg": "#E6ECF1",
+      "accent": "#A5CDE6",
+      "headline": "Bu yerda nimani\ntopasiz?",
+      "body": "Har kuni bitta oyat. 18 soniya.\nVaʼz ham, daʼvo ham yoʻq.",
+      "illustration": "04.png"
+    },
+    {
+      "n": 5,
+      "file": "05.png",
+      "bg": "#F2E7E4",
+      "accent": "#F2AFA0",
+      "headline": "Men olim emasman.",
+      "body": "Men ham Siz kabi oʻrganyapman.\nOyatni tarjimasi bilan beraman,\noʻzimdan sharh qoʻshmayman.",
+      "illustration": "05.png"
+    },
+    {
+      "n": 6,
+      "file": "06.png",
+      "bg": "#F5EBDB",
+      "accent": "#F2D98B",
+      "headline": "Xush kelibsiz!",
+      "body": "Obuna boʻling.\nSaqlang va kerak boʻlgan doʻstingizga yuboring.",
+      "cta": [
+        "Obuna boʻling",
+        "Saqlang",
+        "Ulashing"
+      ],
+      "footer": "@18.sakinat · har kuni 20:00",
+      "illustration": "06.png"
+    }
+  ]
+}
