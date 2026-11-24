@@ -1,0 +1,91 @@
+{
+  "id": "07_umidsizlik",
+  "topic": "07_umidsizlik",
+  "duration": 16.99,
+  "output": "out/07_umidsizlik.mp4",
+  "audio": "assets/07_umidsizlik/voice.mp3",
+  "illustration": "assets/07_umidsizlik/illustration.png",
+  "illustration_box": [
+    110,
+    320,
+    610,
+    820
+  ],
+  "zoom": [
+    1.0,
+    1.06
+  ],
+  "caption_y": 930,
+  "footer": "",
+  "palette": {
+    "bg": "#FDEFD9",
+    "ink": "#3B352C",
+    "muted": "#7A7265",
+    "faint": "#A79E90",
+    "highlight": "#F2D98B",
+    "gold": "#C9A227"
+  },
+  "glow_color": "#F2D98B",
+  "header": {
+    "y": 175,
+    "arabic": "لَا تَقْنَطُوا مِنْ رَحْمَةِ اللَّهِ",
+    "arabic_highlight": "رَحْمَةِ",
+    "arabic_size": 48,
+    "highlight_at": 6.89,
+    "highlight_duration": 0.5,
+    "translation": "«Allohning rahmatidan noumid boʻlmanglar»",
+    "translation_size": 21,
+    "reference": "Zumar surasi · 39:53"
+  },
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 2.72,
+      "text": "Juda koʻp xato qildim deb\noʻylayapsanmi?"
+    },
+    {
+      "start": 2.76,
+      "end": 4.88,
+      "text": "Qaytishga yuzim yoʻq\ndeysanmi?"
+    },
+    {
+      "start": 4.96,
+      "end": 6.56,
+      "text": "Alloh taolo aytdi:"
+    },
+    {
+      "start": 6.64,
+      "end": 9.4,
+      "text": "«Allohning rahmatidan\nnoumid boʻlmanglar»",
+      "highlight": [
+        "noumid"
+      ]
+    },
+    {
+      "start": 9.6,
+      "end": 12.0,
+      "text": "Gunohing qanchalik\nkatta boʻlmasin,"
+    },
+    {
+      "start": 12.04,
+      "end": 14.08,
+      "text": "Uning rahmati kattaroq.",
+      "highlight": [
+        "kattaroq"
+      ]
+    },
+    {
+      "start": 14.13,
+      "end": 15.12,
+      "text": "Qaytib kel."
+    },
+    {
+      "start": 15.2,
+      "end": 16.64,
+      "text": "Eshik hali ochiq.",
+      "highlight": [
+        "ochiq"
+      ]
+    }
+  ]
+}

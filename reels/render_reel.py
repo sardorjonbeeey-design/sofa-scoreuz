@@ -363,11 +363,16 @@ def make_header(spec: dict, pal: Palette):
 
     marker = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     kw = head.get("arabic_highlight", "")
-    if kw:
+    if kw and kw in verse:
+        # words that follow the keyword logically are drawn to its left, so the
+        # keyword's left edge is the line's left edge plus the width of that tail
+        tail = verse[verse.index(kw) + len(kw):]
+        tail_w = probe.textlength(tail, font=f_verse, direction="rtl", language="ar")
         kwl = probe.textlength(kw, font=f_verse, direction="rtl", language="ar")
+        x_a = left + tail_w
         rounded(
             ImageDraw.Draw(marker),
-            (left - px(9), y_verse - px(30), left + kwl + px(9), y_verse + px(24)),
+            (x_a - px(9), y_verse - px(30), x_a + kwl + px(9), y_verse + px(24)),
             px(10),
             pal.highlight + (235,),
         )

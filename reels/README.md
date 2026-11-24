@@ -106,8 +106,44 @@ ElevenLabs Adam via Poyo — stability 0.4, similarity_boost 0.8,
 
 Arabic shaping and RTL come from Pillow's Raqm/HarfBuzz layout engine.
 
+## Instagram framing
+
+The layout is authored inside the reel safe area, so nothing is covered by
+Instagram's own interface:
+
+| Reserved | 1080x1920 | design space |
+|----------|-----------|--------------|
+| top bar | 0-220 | 0-147 |
+| caption, username, audio | 1500-1920 | 1000-1280 |
+| action buttons | x > 900, y > 900 | x > 600 |
+
+Videos 02 onward use `header_y` 175, `illustration_box` [110, 320, 610, 820]
+and `caption_y` 930, which clears all three.
+
+## Captions from the voiceover
+
+The TTS call sets `timestamps: true`; `make_spec.py` reads the returned
+character-level alignment and gives every phrase its exact start and end:
+
+```bash
+python3 reels/make_spec.py 02_ortiqcha_yuk     # brief -> spec
+python3 reels/render_reel.py reels/videos/02_ortiqcha_yuk.json \
+    --scale 1.5 --crf 16 --suffix _1080
+```
+
+`make_spec.py` also samples the illustration's own paper colour into
+`palette.bg`, so the page and the drawing always match exactly.
+
+Briefs (script, verse, palette, marker words) live in `reels/briefs/briefs.json`.
+
 ## Videos
 
-| # | Topic | Verse | Status |
-|---|-------|-------|--------|
-| 01 | Yolgʻizlik (loneliness) | 94:5-6 | done |
+| # | Topic | Verse | Page | Status |
+|---|-------|-------|------|--------|
+| 01 | Yolgʻizlik | 94:5-6 | cream | done |
+| 02 | Ortiqcha yuk | 2:286 | sand | done |
+| 03 | Qalb tinchligi | 13:28 | sage | done |
+| 04 | Tavakkul | 65:3 | mist blue | done |
+| 05 | Zikr | 2:152 | dusty rose | done |
+| 06 | Duo | 40:60 | lavender | done |
+| 07 | Umidsizlik | 39:53 | cream | done |

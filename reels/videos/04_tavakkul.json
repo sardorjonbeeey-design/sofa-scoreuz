@@ -1,0 +1,92 @@
+{
+  "id": "04_tavakkul",
+  "topic": "04_tavakkul",
+  "duration": 16.6,
+  "output": "out/04_tavakkul.mp4",
+  "audio": "assets/04_tavakkul/voice.mp3",
+  "illustration": "assets/04_tavakkul/illustration.png",
+  "illustration_box": [
+    110,
+    320,
+    610,
+    820
+  ],
+  "zoom": [
+    1.0,
+    1.06
+  ],
+  "caption_y": 930,
+  "footer": "",
+  "palette": {
+    "bg": "#E1ECF2",
+    "ink": "#3B352C",
+    "muted": "#7A7265",
+    "faint": "#A79E90",
+    "highlight": "#A5CDE6",
+    "gold": "#C9A227"
+  },
+  "glow_color": "#A5CDE6",
+  "header": {
+    "y": 175,
+    "arabic": "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ",
+    "arabic_highlight": "حَسْبُهُ",
+    "arabic_size": 48,
+    "highlight_at": 6.28,
+    "highlight_duration": 0.5,
+    "translation": "«Kim Allohga tavakkul qilsa, U unga yetarlidir»",
+    "translation_size": 21,
+    "reference": "Taloq surasi · 65:3"
+  },
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 1.36,
+      "text": "Rejang buzildimi?"
+    },
+    {
+      "start": 1.44,
+      "end": 4.24,
+      "text": "Hammasini oʻzim hal qilaman\ndeb charchadingmi?"
+    },
+    {
+      "start": 4.32,
+      "end": 5.92,
+      "text": "Alloh taolo aytdi:"
+    },
+    {
+      "start": 6.03,
+      "end": 10.0,
+      "text": "«Kim Allohga tavakkul qilsa,\nU unga yetarlidir»",
+      "highlight": [
+        "yetarlidir"
+      ]
+    },
+    {
+      "start": 10.24,
+      "end": 10.96,
+      "text": "Yetarli.",
+      "highlight": [
+        "Yetarli"
+      ]
+    },
+    {
+      "start": 11.28,
+      "end": 13.2,
+      "text": "Boshqa hech narsa kerak emas."
+    },
+    {
+      "start": 13.24,
+      "end": 14.08,
+      "text": "Qoʻyib yubor.",
+      "highlight": [
+        "Qoʻyib",
+        "yubor"
+      ]
+    },
+    {
+      "start": 14.2,
+      "end": 16.24,
+      "text": "U eng yaxshi tadbir qiluvchi."
+    }
+  ]
+}

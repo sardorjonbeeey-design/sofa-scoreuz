@@ -1,0 +1,92 @@
+{
+  "id": "03_qalb_tinchligi",
+  "topic": "03_qalb_tinchligi",
+  "duration": 18.19,
+  "output": "out/03_qalb_tinchligi.mp4",
+  "audio": "assets/03_qalb_tinchligi/voice.mp3",
+  "illustration": "assets/03_qalb_tinchligi/illustration.png",
+  "illustration_box": [
+    110,
+    320,
+    610,
+    820
+  ],
+  "zoom": [
+    1.0,
+    1.06
+  ],
+  "caption_y": 930,
+  "footer": "",
+  "palette": {
+    "bg": "#E8EDDF",
+    "ink": "#3B352C",
+    "muted": "#7A7265",
+    "faint": "#A79E90",
+    "highlight": "#BBD6A2",
+    "gold": "#C9A227"
+  },
+  "glow_color": "#BBD6A2",
+  "header": {
+    "y": 175,
+    "arabic": "أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ",
+    "arabic_highlight": "تَطْمَئِنُّ",
+    "arabic_size": 48,
+    "highlight_at": 8.04,
+    "highlight_duration": 0.5,
+    "translation": "«Ogoh boʻling, qalblar Allohni zikr qilish bilan orom topadi»",
+    "translation_size": 21,
+    "reference": "Raʼd surasi · 13:28"
+  },
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 2.4,
+      "text": "Tinchlikni qayerdan\nqidiryapsan?"
+    },
+    {
+      "start": 2.48,
+      "end": 6.08,
+      "text": "Hamma narsang bor,\nlekin qalbing notinchmi?"
+    },
+    {
+      "start": 6.16,
+      "end": 7.76,
+      "text": "Alloh taolo aytdi:"
+    },
+    {
+      "start": 7.79,
+      "end": 11.44,
+      "text": "«Qalblar faqat Allohni zikr\nqilish bilan orom topadi»",
+      "highlight": [
+        "orom"
+      ]
+    },
+    {
+      "start": 11.84,
+      "end": 12.76,
+      "text": "Pul emas."
+    },
+    {
+      "start": 12.96,
+      "end": 14.12,
+      "text": "Odamlar emas."
+    },
+    {
+      "start": 14.32,
+      "end": 15.12,
+      "text": "Faqat U.",
+      "highlight": [
+        "Faqat",
+        "U"
+      ]
+    },
+    {
+      "start": 15.44,
+      "end": 17.84,
+      "text": "Toʻxta. Va Uni esla.",
+      "highlight": [
+        "esla"
+      ]
+    }
+  ]
+}

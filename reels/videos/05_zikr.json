@@ -1,0 +1,92 @@
+{
+  "id": "05_zikr",
+  "topic": "05_zikr",
+  "duration": 17.48,
+  "output": "out/05_zikr.mp4",
+  "audio": "assets/05_zikr/voice.mp3",
+  "illustration": "assets/05_zikr/illustration.png",
+  "illustration_box": [
+    110,
+    320,
+    610,
+    820
+  ],
+  "zoom": [
+    1.0,
+    1.06
+  ],
+  "caption_y": 930,
+  "footer": "",
+  "palette": {
+    "bg": "#FBDDD6",
+    "ink": "#3B352C",
+    "muted": "#7A7265",
+    "faint": "#A79E90",
+    "highlight": "#F2AFA0",
+    "gold": "#C9A227"
+  },
+  "glow_color": "#F2AFA0",
+  "header": {
+    "y": 175,
+    "arabic": "فَاذْكُرُونِي أَذْكُرْكُمْ",
+    "arabic_highlight": "أَذْكُرْكُمْ",
+    "arabic_size": 48,
+    "highlight_at": 6.69,
+    "highlight_duration": 0.5,
+    "translation": "«Meni eslanglar, Men sizlarni eslayman»",
+    "translation_size": 21,
+    "reference": "Baqara surasi · 2:152"
+  },
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 2.56,
+      "text": "Unutilganday his qilyapsanmi?"
+    },
+    {
+      "start": 2.64,
+      "end": 4.16,
+      "text": "Hech kim seni oʻylamayaptimi?"
+    },
+    {
+      "start": 4.8,
+      "end": 6.4,
+      "text": "Alloh taolo aytdi:"
+    },
+    {
+      "start": 6.44,
+      "end": 9.8,
+      "text": "«Meni eslanglar,\nMen sizlarni eslayman»",
+      "highlight": [
+        "eslayman"
+      ]
+    },
+    {
+      "start": 10.08,
+      "end": 12.64,
+      "text": "Sen Uni eslagan\nhar bir lahzada,"
+    },
+    {
+      "start": 12.72,
+      "end": 14.16,
+      "text": "U ham seni eslaydi.",
+      "highlight": [
+        "eslaydi"
+      ]
+    },
+    {
+      "start": 14.2,
+      "end": 14.8,
+      "text": "Shuning uchun"
+    },
+    {
+      "start": 15.04,
+      "end": 17.12,
+      "text": "hech qachon yolgʻiz emassan.",
+      "highlight": [
+        "yolgʻiz",
+        "emassan"
+      ]
+    }
+  ]
+}

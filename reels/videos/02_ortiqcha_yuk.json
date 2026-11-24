@@ -1,0 +1,92 @@
+{
+  "id": "02_ortiqcha_yuk",
+  "topic": "02_ortiqcha_yuk",
+  "duration": 17.41,
+  "output": "out/02_ortiqcha_yuk.mp4",
+  "audio": "assets/02_ortiqcha_yuk/voice.mp3",
+  "illustration": "assets/02_ortiqcha_yuk/illustration.png",
+  "illustration_box": [
+    110,
+    320,
+    610,
+    820
+  ],
+  "zoom": [
+    1.0,
+    1.06
+  ],
+  "caption_y": 930,
+  "footer": "",
+  "palette": {
+    "bg": "#F9EBD7",
+    "ink": "#3B352C",
+    "muted": "#7A7265",
+    "faint": "#A79E90",
+    "highlight": "#F0C487",
+    "gold": "#C9A227"
+  },
+  "glow_color": "#F0C487",
+  "header": {
+    "y": 175,
+    "arabic": "لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا",
+    "arabic_highlight": "وُسْعَهَا",
+    "arabic_size": 48,
+    "highlight_at": 5.93,
+    "highlight_duration": 0.5,
+    "translation": "«Alloh hech bir jonga kuchi yetmaydiganini yuklamaydi»",
+    "translation_size": 21,
+    "reference": "Baqara surasi · 2:286"
+  },
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 2.24,
+      "text": "Koʻtara olmayman deb\noʻylayapsanmi?"
+    },
+    {
+      "start": 2.32,
+      "end": 4.0,
+      "text": "Yuking juda ogʻirmi?"
+    },
+    {
+      "start": 4.08,
+      "end": 5.6,
+      "text": "Alloh taolo aytdi:"
+    },
+    {
+      "start": 5.68,
+      "end": 9.36,
+      "text": "«Alloh hech bir jonga kuchi\nyetmaydiganini yuklamaydi»",
+      "highlight": [
+        "kuchi"
+      ]
+    },
+    {
+      "start": 9.6,
+      "end": 11.36,
+      "text": "Bu yuk senga berildi."
+    },
+    {
+      "start": 11.48,
+      "end": 13.36,
+      "text": "Chunki sen koʻtara olasan.",
+      "highlight": [
+        "koʻtara",
+        "olasan"
+      ]
+    },
+    {
+      "start": 13.4,
+      "end": 15.2,
+      "text": "Yiqilsang ham, turib ket."
+    },
+    {
+      "start": 15.32,
+      "end": 17.04,
+      "text": "U sening kuchingni biladi.",
+      "highlight": [
+        "kuchingni"
+      ]
+    }
+  ]
+}

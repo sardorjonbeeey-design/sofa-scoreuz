@@ -1,0 +1,217 @@
+{
+  "common": {
+    "voice": "Adam",
+    "stability": 0.4,
+    "similarity_boost": 0.8,
+    "language_code": "uz",
+    "output_format": "mp3_44100_128",
+    "illustration_box": [
+      110,
+      320,
+      610,
+      820
+    ],
+    "caption_y": 930,
+    "header_y": 175
+  },
+  "videos": [
+    {
+      "id": "02_ortiqcha_yuk",
+      "palette": {
+        "bg": "#F2E9DC",
+        "highlight": "#F0C487"
+      },
+      "arabic": "لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا",
+      "arabic_highlight": "وُسْعَهَا",
+      "translation": "«Alloh hech bir jonga kuchi yetmaydiganini yuklamaydi»",
+      "reference": "Baqara surasi · 2:286",
+      "phrases": [
+        "Koʻtara olmayman deb\noʻylayapsanmi?",
+        "Yuking juda ogʻirmi?",
+        "Alloh taolo aytdi:",
+        "«Alloh hech bir jonga kuchi\nyetmaydiganini yuklamaydi»",
+        "Bu yuk senga berildi.",
+        "Chunki sen koʻtara olasan.",
+        "Yiqilsang ham, turib ket.",
+        "U sening kuchingni biladi."
+      ],
+      "caption_highlights": {
+        "3": [
+          "kuchi"
+        ],
+        "5": [
+          "koʻtara",
+          "olasan"
+        ],
+        "7": [
+          "kuchingni"
+        ]
+      }
+    },
+    {
+      "id": "03_qalb_tinchligi",
+      "palette": {
+        "bg": "#E9EDE4",
+        "highlight": "#BBD6A2"
+      },
+      "arabic": "أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ",
+      "arabic_highlight": "تَطْمَئِنُّ",
+      "translation": "«Ogoh boʻling, qalblar Allohni zikr qilish bilan orom topadi»",
+      "reference": "Raʼd surasi · 13:28",
+      "phrases": [
+        "Tinchlikni qayerdan\nqidiryapsan?",
+        "Hamma narsang bor,\nlekin qalbing notinchmi?",
+        "Alloh taolo aytdi:",
+        "«Qalblar faqat Allohni zikr\nqilish bilan orom topadi»",
+        "Pul emas.",
+        "Odamlar emas.",
+        "Faqat U.",
+        "Toʻxta. Va Uni esla."
+      ],
+      "caption_highlights": {
+        "3": [
+          "orom"
+        ],
+        "6": [
+          "Faqat",
+          "U"
+        ],
+        "7": [
+          "esla"
+        ]
+      }
+    },
+    {
+      "id": "04_tavakkul",
+      "palette": {
+        "bg": "#E6ECF1",
+        "highlight": "#A5CDE6"
+      },
+      "arabic": "وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ",
+      "arabic_highlight": "حَسْبُهُ",
+      "translation": "«Kim Allohga tavakkul qilsa, U unga yetarlidir»",
+      "reference": "Taloq surasi · 65:3",
+      "phrases": [
+        "Rejang buzildimi?",
+        "Hammasini oʻzim hal qilaman\ndeb charchadingmi?",
+        "Alloh taolo aytdi:",
+        "«Kim Allohga tavakkul qilsa,\nU unga yetarlidir»",
+        "Yetarli.",
+        "Boshqa hech narsa kerak emas.",
+        "Qoʻyib yubor.",
+        "U eng yaxshi tadbir qiluvchi."
+      ],
+      "caption_highlights": {
+        "3": [
+          "yetarlidir"
+        ],
+        "4": [
+          "Yetarli"
+        ],
+        "6": [
+          "Qoʻyib",
+          "yubor"
+        ]
+      }
+    },
+    {
+      "id": "05_zikr",
+      "palette": {
+        "bg": "#F2E7E4",
+        "highlight": "#F2AFA0"
+      },
+      "arabic": "فَاذْكُرُونِي أَذْكُرْكُمْ",
+      "arabic_highlight": "أَذْكُرْكُمْ",
+      "translation": "«Meni eslanglar, Men sizlarni eslayman»",
+      "reference": "Baqara surasi · 2:152",
+      "phrases": [
+        "Unutilganday his qilyapsanmi?",
+        "Hech kim seni oʻylamayaptimi?",
+        "Alloh taolo aytdi:",
+        "«Meni eslanglar,\nMen sizlarni eslayman»",
+        "Sen Uni eslagan\nhar bir lahzada,",
+        "U ham seni eslaydi.",
+        "Shuning uchun",
+        "hech qachon yolgʻiz emassan."
+      ],
+      "caption_highlights": {
+        "3": [
+          "eslayman"
+        ],
+        "5": [
+          "eslaydi"
+        ],
+        "7": [
+          "yolgʻiz",
+          "emassan"
+        ]
+      }
+    },
+    {
+      "id": "06_duo",
+      "palette": {
+        "bg": "#ECE8F0",
+        "highlight": "#C0AEE2"
+      },
+      "arabic": "ادْعُونِي أَسْتَجِبْ لَكُمْ",
+      "arabic_highlight": "أَسْتَجِبْ",
+      "translation": "«Menga duo qilinglar, Men sizlarga javob beraman»",
+      "reference": "Gʻofir surasi · 40:60",
+      "phrases": [
+        "Duong javobsiz qoldi deb\noʻylayapsanmi?",
+        "Soʻrashdan charchadingmi?",
+        "Alloh taolo aytdi:",
+        "«Menga duo qilinglar,\nMen javob beraman»",
+        "Javob kechikishi mumkin.",
+        "Lekin kelmasligi mumkin emas.",
+        "Soʻra.",
+        "U eshitib turibdi."
+      ],
+      "caption_highlights": {
+        "3": [
+          "javob"
+        ],
+        "5": [
+          "mumkin",
+          "emas"
+        ],
+        "7": [
+          "eshitib",
+          "turibdi"
+        ]
+      }
+    },
+    {
+      "id": "07_umidsizlik",
+      "palette": {
+        "bg": "#F5EBDB",
+        "highlight": "#F2D98B"
+      },
+      "arabic": "لَا تَقْنَطُوا مِنْ رَحْمَةِ اللَّهِ",
+      "arabic_highlight": "رَحْمَةِ",
+      "translation": "«Allohning rahmatidan noumid boʻlmanglar»",
+      "reference": "Zumar surasi · 39:53",
+      "phrases": [
+        "Juda koʻp xato qildim deb\noʻylayapsanmi?",
+        "Qaytishga yuzim yoʻq\ndeysanmi?",
+        "Alloh taolo aytdi:",
+        "«Allohning rahmatidan\nnoumid boʻlmanglar»",
+        "Gunohing qanchalik\nkatta boʻlmasin,",
+        "Uning rahmati kattaroq.",
+        "Qaytib kel.",
+        "Eshik hali ochiq."
+      ],
+      "caption_highlights": {
+        "3": [
+          "noumid"
+        ],
+        "5": [
+          "kattaroq"
+        ],
+        "7": [
+          "ochiq"
+        ]
+      }
+    }
+  ]
+}

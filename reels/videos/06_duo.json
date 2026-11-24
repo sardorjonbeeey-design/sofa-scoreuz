@@ -1,0 +1,93 @@
+{
+  "id": "06_duo",
+  "topic": "06_duo",
+  "duration": 15.79,
+  "output": "out/06_duo.mp4",
+  "audio": "assets/06_duo/voice.mp3",
+  "illustration": "assets/06_duo/illustration.png",
+  "illustration_box": [
+    110,
+    320,
+    610,
+    820
+  ],
+  "zoom": [
+    1.0,
+    1.06
+  ],
+  "caption_y": 930,
+  "footer": "",
+  "palette": {
+    "bg": "#EBE6F0",
+    "ink": "#3B352C",
+    "muted": "#7A7265",
+    "faint": "#A79E90",
+    "highlight": "#C0AEE2",
+    "gold": "#C9A227"
+  },
+  "glow_color": "#C0AEE2",
+  "header": {
+    "y": 175,
+    "arabic": "ادْعُونِي أَسْتَجِبْ لَكُمْ",
+    "arabic_highlight": "أَسْتَجِبْ",
+    "arabic_size": 48,
+    "highlight_at": 6.05,
+    "highlight_duration": 0.5,
+    "translation": "«Menga duo qilinglar, Men sizlarga javob beraman»",
+    "translation_size": 21,
+    "reference": "Gʻofir surasi · 40:60"
+  },
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 2.48,
+      "text": "Duong javobsiz qoldi deb\noʻylayapsanmi?"
+    },
+    {
+      "start": 2.56,
+      "end": 4.16,
+      "text": "Soʻrashdan charchadingmi?"
+    },
+    {
+      "start": 4.24,
+      "end": 5.76,
+      "text": "Alloh taolo aytdi:"
+    },
+    {
+      "start": 5.8,
+      "end": 8.92,
+      "text": "«Menga duo qilinglar,\nMen javob beraman»",
+      "highlight": [
+        "javob"
+      ]
+    },
+    {
+      "start": 9.2,
+      "end": 10.8,
+      "text": "Javob kechikishi mumkin."
+    },
+    {
+      "start": 10.88,
+      "end": 13.12,
+      "text": "Lekin kelmasligi mumkin emas.",
+      "highlight": [
+        "mumkin",
+        "emas"
+      ]
+    },
+    {
+      "start": 13.2,
+      "end": 13.92,
+      "text": "Soʻra."
+    },
+    {
+      "start": 14.0,
+      "end": 15.44,
+      "text": "U eshitib turibdi.",
+      "highlight": [
+        "eshitib",
+        "turibdi"
+      ]
+    }
+  ]
+}
