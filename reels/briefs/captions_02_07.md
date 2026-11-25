@@ -32,18 +32,27 @@ Toʻxta. Va Uni esla 🤍
 
 ## 04 · Tavakkul (65:3)
 
+Sahifaning **ikkinchi posti** sifatida joylanadi, shuning uchun oxirida
+obunaga chaqiruv kuchliroq.
+
 ```
 «Kim Allohga tavakkul qilsa, U unga yetarlidir.»
 
-Yetarli.
-Boshqa hech narsa, hech kim kerak emas.
+Rejangiz buzilganda eng ogʻiri — hammasini oʻzingiz
+hal qilishga urinish.
 
-Rejang buzilgan boʻlsa, demak boshqa reja bor.
+Lekin oyat bitta soʻz aytadi: yetarli.
+Boshqa hech kim, hech narsa kerak emas.
+
+Qoʻyib yuboring. U eng yaxshi tadbir qiluvchidir.
 
 📖 Taloq surasi, 65:3
 
-Qoʻyib yubor 🤍
+Bu — sahifadagi ikkinchi oyat.
+Har kuni 20:00 da yangisi boʻladi — obuna boʻling 🤍
 ```
+
+Muqova kadri: **6.5 soniya** (oyat va حَسْبُهُ ustidagi sariq belgi).
 
 ## 05 · Zikr (2:152)
 
