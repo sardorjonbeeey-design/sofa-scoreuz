@@ -56,18 +56,26 @@ Muqova kadri: **6.5 soniya** (oyat va حَسْبُهُ ustidagi sariq belgi).
 
 ## 05 · Zikr (2:152)
 
+Sahifaning **uchinchi posti**. Bu oyat eng koʻp saqlanadiganlaridan —
+shuning uchun chaqiruv "saqlang"ga qaratilgan.
+
 ```
 «Meni eslanglar, Men sizlarni eslayman.»
 
-Oʻyla bir: sen Uni eslagan har bir lahzada,
-olamlar Robbi seni eslaydi.
+Bir oʻylab koʻring.
+Siz Uni eslagan har bir lahzada —
+olamlar Robbi Sizni eslaydi.
 
-Shuning uchun hech qachon yolgʻiz emassan.
+Unutilgandek tuyulgan kuningizda ham.
+Shuning uchun hech qachon yolgʻiz emassiz.
 
 📖 Baqara surasi, 2:152
 
-Saqlab qoʻying 🤍
+Qiyin kuningizda qaytib oʻqishingiz uchun saqlab qoʻying 🤍
+Har kuni 20:00 da yangi oyat.
 ```
+
+Muqova kadri: **7 soniya** (oyat va أَذْكُرْكُمْ ustidagi belgi).
 
 ## 06 · Duo (40:60)
 
