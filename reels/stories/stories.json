@@ -1,0 +1,60 @@
+{
+  "size": [
+    1080,
+    1920
+  ],
+  "stories": [
+    {
+      "n": 1,
+      "file": "s1_duo.png",
+      "bg": "#EBE6F0",
+      "accent": "#C0AEE2",
+      "headline": "Ey Allohim,",
+      "body": "qalbimga orom ber.\nYukimni yengil qil.",
+      "illustration": "../assets/06_duo/illustration.png",
+      "footer": "@18.sakinat"
+    },
+    {
+      "n": 2,
+      "file": "s2_toxtash.png",
+      "bg": "#E9EDE4",
+      "accent": "#BBD6A2",
+      "headline": "Oxirgi marta\nqachon toʻxtadingiz?",
+      "body": "Shoshmasdan.\nFaqat bir daqiqa.",
+      "illustration": "../assets/03_qalb_tinchligi/illustration.png",
+      "footer": "@18.sakinat"
+    },
+    {
+      "n": 3,
+      "file": "s3_uch_qadam.png",
+      "bg": "#F2E7E4",
+      "accent": "#F2AFA0",
+      "headline": "Qiyin kun uchun\nuch qadam",
+      "body": "Toʻxtang.\nNafas oling.\nBitta oyat oʻqing.",
+      "illustration": "../assets/05_zikr/illustration.png",
+      "footer": "@18.sakinat"
+    },
+    {
+      "n": 4,
+      "file": "s4_sorov.png",
+      "bg": "#F2E9DC",
+      "accent": "#F0C487",
+      "headline": "Qaysi biri\nqiyinroq?",
+      "body": "Sabr qilishmi\nyoki shukr qilish?",
+      "illustration": "../assets/02_ortiqcha_yuk/illustration.png",
+      "sticker_hint": "SOʻROV stikerini shu yerga qoʻying",
+      "sticker_band": true,
+      "footer": "@18.sakinat"
+    },
+    {
+      "n": 5,
+      "file": "s5_kuch.png",
+      "bg": "#F2E9DC",
+      "accent": "#F0C487",
+      "headline": "Siz oʻylagandan\nkuchliroqsiz.",
+      "body": "Chunki yukingizni bergan Zot\nbuni Sizdan yaxshiroq biladi.",
+      "illustration": "../carousel/assets/02.png",
+      "footer": "@18.sakinat"
+    }
+  ]
+}
