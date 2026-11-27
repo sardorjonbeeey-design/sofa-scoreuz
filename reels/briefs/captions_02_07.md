@@ -17,18 +17,26 @@ Saqlab qoʻying 🤍
 
 ## 03 · Qalb tinchligi (13:28)
 
+Sahifaning **toʻrtinchi posti**. Savol bilan tugaydi — izohlarni ochadi.
+
 ```
 «Qalblar faqat Allohni zikr qilish bilan orom topadi.»
 
-Pul emas. Odamlar emas. Yangi reja emas.
-Faqat U.
+Hammasi joyida koʻrinadi. Ish bor, reja bor, odamlar bor.
+Lekin ichingizda nimadir tinchimaydi.
 
-Hamma narsani sinab koʻrding. Buni ham sinab koʻr.
+Chunki qalb boshqa narsadan orom olmaydi.
+Pul emas. Odamlar emas. Yangi reja emas.
+
+Faqat U.
 
 📖 Raʼd surasi, 13:28
 
-Toʻxta. Va Uni esla 🤍
+Siz tinchlikni oxirgi marta qayerda topgansiz?
+Izohda yozing 🤍
 ```
+
+Muqova kadri: **8.5 soniya** (oyat va تَطْمَئِنُّ ustidagi belgi).
 
 ## 04 · Tavakkul (65:3)
 
