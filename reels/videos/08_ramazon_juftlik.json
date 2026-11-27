@@ -1,0 +1,75 @@
+{
+  "id": "08_ramazon_juftlik",
+  "topic": "Ramazon — juftlik uchun duo",
+  "duration": 15.0,
+  "output": "out/08_ramazon_juftlik.mp4",
+  "illustration": "assets/08_ramazon_juftlik/illustration.png",
+  "illustration_box": [
+    110,
+    320,
+    610,
+    820
+  ],
+  "zoom": [
+    1.0,
+    1.06
+  ],
+  "caption_y": 930,
+  "footer": "",
+  "reveal_duration": 1.6,
+  "palette": {
+    "bg": "#F8EEDC",
+    "ink": "#3B352C",
+    "muted": "#7A7265",
+    "faint": "#A79E90",
+    "highlight": "#F2D98B",
+    "gold": "#C9A227"
+  },
+  "glow_color": "#F2D98B",
+  "header": {
+    "y": 175,
+    "arabic": "اللَّهُمَّ بَلِّغْنَا رَمَضَانَ",
+    "arabic_highlight": "رَمَضَانَ",
+    "arabic_size": 48,
+    "highlight_at": 5.4,
+    "highlight_duration": 0.5,
+    "translation": "«Ey Allohim, bizni Ramazonga yetkaz»",
+    "translation_size": 21,
+    "reference": "Ramazon duosi"
+  },
+  "captions": [
+    {
+      "start": 0.3,
+      "end": 3.4,
+      "text": "Bu Ramazonni birga\noʻtkazadigan insonga.",
+      "highlight": [
+        "birga"
+      ]
+    },
+    {
+      "start": 3.9,
+      "end": 5.3,
+      "text": "Ey Allohim,"
+    },
+    {
+      "start": 5.6,
+      "end": 8.4,
+      "text": "bizni birga Ramazonga\nyetkaz.",
+      "highlight": [
+        "yetkaz"
+      ]
+    },
+    {
+      "start": 8.8,
+      "end": 11.9,
+      "text": "Qalblarimizni Oʻzingga va\nbir-birimizga yaqin qil."
+    }
+  ],
+  "end_card": {
+    "start": 12.4,
+    "headline": "Oʻsha insonga yuboring.",
+    "sub": "@18.sakinat",
+    "size": 46
+  },
+  "lights_blink": false
+}

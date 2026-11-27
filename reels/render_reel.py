@@ -242,7 +242,7 @@ def build_scene(spec: dict) -> Scene:
         )
         if kind == "light":
             # most windows stay lit; a few go dark and come back during the clip
-            if rng.random() < 0.5:
+            if spec.get("lights_blink", True) and rng.random() < 0.5:
                 off = rng.uniform(1.8, float(spec["duration"]) - 5.5)
                 sprite.schedule = [(off, off + rng.uniform(1.6, 3.4))]
         sprites.append(sprite)
@@ -523,21 +523,23 @@ def render(spec_path: str, scale: float = 1.0, crf: int = 19, suffix: str = "") 
         stem, ext = os.path.splitext(out_path)
         out_path = stem + suffix + ext
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    audio = os.path.join(ROOT, spec["audio"])
+    # a spec with no "audio" renders silent, for clips that will have a
+    # trending sound attached inside Instagram
+    audio = os.path.join(ROOT, spec["audio"]) if spec.get("audio") else None
 
-    cmd = [
-        "ffmpeg", "-y", "-v", "error",
-        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", "%dx%d" % (W, H), "-r", str(FPS), "-i", "-",
-        "-i", audio,
-        "-filter_complex",
-        "[1:a]apad,atrim=0:%s,afade=t=out:st=%s:d=0.45[a]" % (duration, duration - 0.45),
-        "-map", "0:v", "-map", "[a]",
-        "-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", str(crf),
-        "-pix_fmt", "yuv420p", "-r", str(FPS),
-        "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
-        "-movflags", "+faststart", "-shortest",
-        out_path,
-    ]
+    cmd = ["ffmpeg", "-y", "-v", "error",
+           "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", "%dx%d" % (W, H),
+           "-r", str(FPS), "-i", "-"]
+    if audio:
+        cmd += ["-i", audio,
+                "-filter_complex",
+                "[1:a]apad,atrim=0:%s,afade=t=out:st=%s:d=0.45[a]" % (duration, duration - 0.45),
+                "-map", "0:v", "-map", "[a]"]
+    cmd += ["-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", str(crf),
+            "-pix_fmt", "yuv420p", "-r", str(FPS)]
+    if audio:
+        cmd += ["-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2", "-shortest"]
+    cmd += ["-movflags", "+faststart", out_path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
     for i in range(frames):
@@ -582,6 +584,24 @@ def render(spec_path: str, scale: float = 1.0, crf: int = 19, suffix: str = "") 
             a = segment_alpha(t, cap["start"], cap["end"])
             if a > 0.004:
                 draw_caption(frame, cap, pal, spec, t, a)
+
+        # --- end card ------------------------------------------------------ #
+        end = spec.get("end_card")
+        if end and t >= end["start"] - 0.4:
+            a = ease_in_out((t - end["start"] + 0.4) / 0.6)
+            cover = Image.new("RGBA", (W, H), pal.bg + (int(252 * min(a, 1.0)),))
+            paste_rgba(frame, cover)
+            d = ImageDraw.Draw(frame)
+            rise = (1.0 - ease_out((t - end["start"]) / 0.5)) * px(14)
+            mix = lambda c, f: tuple(int(pal.bg[i] + (c[i] - pal.bg[i]) * f) for i in range(3))
+            d.text((W // 2, px(600) + rise), end["headline"],
+                   font=inter("SemiBold", end.get("size", 46)),
+                   fill=mix(pal.ink, min(a, 1.0)), anchor="mm")
+            if end.get("sub"):
+                sub_a = ease_out((t - end["start"] - 0.25) / 0.6)
+                if sub_a > 0.01:
+                    d.text((W // 2, px(680)), end["sub"], font=inter("Medium", 26),
+                           fill=mix(pal.muted, sub_a), anchor="mm")
 
         # --- paper + open/close -------------------------------------------- #
         if grain_mix > 0:
